@@ -1,6 +1,6 @@
 package com.anikanov.paper.crawler.domain;
 
-import com.itextpdf.text.Anchor;
+import com.itextpdf.text.pdf.PdfAnnotation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,5 +12,5 @@ import lombok.NoArgsConstructor;
 @Builder
 public class AggregatedLinkInfo {
     private String text;
-    private Anchor link;
+    private PdfAnnotation.PdfImportedLink link;
 }

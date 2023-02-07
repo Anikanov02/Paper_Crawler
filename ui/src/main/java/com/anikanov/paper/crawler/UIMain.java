@@ -1,11 +1,11 @@
-package com.anikanov;
+package com.anikanov.paper.crawler;
 
-import org.springframework.boot.SpringApplication;
+import javafx.application.Application;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class UIMain {
     public static void main(String[] args) {
-        SpringApplication.run(JavaFXApplication.class, args);
+        Application.launch(JavaFXApplication.class, args);
     }
 }

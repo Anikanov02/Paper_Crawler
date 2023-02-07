@@ -1,6 +1,6 @@
-package com.anikanov;
+package com.anikanov.paper.crawler;
 
-import com.anikanov.controller.ApplicationController;
+import com.anikanov.paper.crawler.controller.ApplicationController;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Parent;

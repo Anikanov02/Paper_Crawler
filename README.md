@@ -1,12 +1,28 @@
-Here is a basic structure of a project.
-There are 3 separate modules:
-1. core: module that contains all the services, dtos and api integrations
-2. ui: a module that builds an interface of an application
-3. web: additional module that can be used later if needed to give an opportunity to trigger services from core through http
+I added some plugins to be able to run multimodule projects using a single jar.
+Also i fixed issue with api service and now it correctly retrieves and parses response and prints it
+to CONSOLE(!) not on ui, so make sure to also check console output while running application
 
-I had to start with ui part as there is no entry point in core module, although, I found the best option among all 
-different kinds of libraries for parsing pdf in java - iText, and made service that would filter all th links from pdf.
-The filtrage itself turned out to be more complex than expected and Im still working on a way to filter all the links
-and not miss something but also not to get something unnecessary in the output of a method. Ui part is almost complete as well as 
-LinkExtractorService, so i hope i will be able to figure out how to filter all the links by Monday as it seems to be the most difficult
-part of a task
+Also. Program runs quite slow because of all the api calls, so it may take some time to process
+even a single paper.
+but then i added filtrage of response parameters and it did help a bit
+
+I added to response parameter "reference" because i believe it is what we are looking for
+
+And now im fully in creating sciHub API to feed it dois from crossref
+
+Instruction on how to run app:
+1. install maven(not necessary when using some IDEs like IntelliJ as they have built in integration)
+2. install java
+3. clone repo from github
+4. cd to root of a project in console
+5. execute command "mvn clean install" and wait for it to process. It will download all necessary dependencies and generate jar files, 
+   you gonna need ui-1.0-SNAPSHOT.jar
+6. then cd ui/target
+7. and then java -jar ui-1.0-SNAPSHOT.jar
+   you will see some console output and then ui part appears
+
+You may also want to run it wia IDE (maybe)
+in case of IntelliJ:
+clone repo->right click pom.xml in a root->reload maven project to download all dependencies->go to ui module and run UIMain class
+
+but there may be some problems with defining project structure(no code changes, just ide configuration) if IDE would not fetch it automatically
