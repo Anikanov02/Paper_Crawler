@@ -2,6 +2,7 @@ package com.anikanov.paper.crawler.source;
 
 import com.anikanov.paper.crawler.config.AppProperties;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
+import com.anikanov.paper.crawler.domain.SourceName;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

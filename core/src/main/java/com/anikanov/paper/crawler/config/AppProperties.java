@@ -1,6 +1,6 @@
 package com.anikanov.paper.crawler.config;
 
-import com.anikanov.paper.crawler.source.SourceName;
+import com.anikanov.paper.crawler.domain.SourceName;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;

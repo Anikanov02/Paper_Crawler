@@ -1,4 +1,4 @@
-package com.anikanov.paper.crawler.source;
+package com.anikanov.paper.crawler.domain;
 
 public enum SourceName {
     ARXIV,

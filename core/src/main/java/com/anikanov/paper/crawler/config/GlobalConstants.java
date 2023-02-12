@@ -10,4 +10,8 @@ public class GlobalConstants {
             ROUND_BRACKETS_LINK_SEPARATOR,
             DIGIT_DOT_LINK_SEPARATOR);
     public static final String CROSSREF_RESPONSE_STATUS_OK = "ok";
+
+    //Bean names
+    public static final String CROSSREF_DEPTH = "CrossrefDepth";
+    public static final String GENERAL_DEPTH = "GeneralDepth";
 }

@@ -1,5 +1,5 @@
 crawler:
-  maxDepth: 10
+  maxDepth: 2
   sourcePriorityOrder: CROSSREF,ARXIV,SCOPUS,CHROME
   crossref:
     baseUrl: http://api.crossref.org

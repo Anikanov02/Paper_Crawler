@@ -1,10 +1,12 @@
 package com.anikanov.paper.crawler.source.crossref.api.interfaces;
 
 import com.anikanov.paper.crawler.source.crossref.api.request.WorksBibliographicSearchRequest;
-import com.anikanov.paper.crawler.source.crossref.api.response.WorksBibliographicSearchResponse;
+import com.anikanov.paper.crawler.source.crossref.api.response.CrossrefMetadataResponse;
 
 import java.io.IOException;
 
 public interface CrossrefApi {
-    WorksBibliographicSearchResponse getWork(WorksBibliographicSearchRequest request) throws IOException;
+    CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request) throws IOException;
+
+    CrossrefMetadataResponse getWork(String doi) throws IOException;
 }

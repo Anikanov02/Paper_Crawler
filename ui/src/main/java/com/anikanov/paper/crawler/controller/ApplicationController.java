@@ -1,8 +1,9 @@
 package com.anikanov.paper.crawler.controller;
 
+import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.config.GlobalConstantsUi;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
-import com.anikanov.paper.crawler.service.LinksDepthProcessorService;
+import com.anikanov.paper.crawler.service.DepthProcessor;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -10,6 +11,7 @@ import javafx.scene.control.TextArea;
 import javafx.stage.FileChooser;
 import lombok.RequiredArgsConstructor;
 import net.rgielen.fxweaver.core.FxmlView;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -35,7 +37,8 @@ public class ApplicationController {
     @FXML
     private Button selectFileButton;
 
-    private final LinksDepthProcessorService depthProcessorService;
+    @Qualifier(GlobalConstants.CROSSREF_DEPTH)
+    private final DepthProcessor depthProcessorService;
 
     private final FileChooser fileChooser = new FileChooser();
 

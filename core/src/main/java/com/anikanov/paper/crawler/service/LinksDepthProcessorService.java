@@ -17,14 +17,15 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Service
+@Service("GeneralDepth")
 @RequiredArgsConstructor
-public class LinksDepthProcessorService {
+public class LinksDepthProcessorService implements DepthProcessor {
     private final AppProperties properties;
     private final LinkExtractorService extractorService;
     @Qualifier("aggregatedSource")
     private final PaperSource source;
 
+    @Override
     public Map<AggregatedLinkInfo, Long> process(InputStream inputStream) throws IOException {
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         process(result, inputStream, BigDecimal.ONE);

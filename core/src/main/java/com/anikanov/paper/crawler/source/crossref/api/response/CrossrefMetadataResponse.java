@@ -8,7 +8,7 @@ import java.util.List;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class WorksBibliographicSearchResponse {
+public class CrossrefMetadataResponse {
     @JsonProperty("total-results")
     private Long totalResults;
 
