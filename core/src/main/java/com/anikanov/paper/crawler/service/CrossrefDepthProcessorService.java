@@ -1,6 +1,7 @@
 package com.anikanov.paper.crawler.service;
 
 import com.anikanov.paper.crawler.config.AppProperties;
+import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.source.crossref.api.impl.CrossrefApiService;
 import com.anikanov.paper.crawler.source.crossref.api.request.WorksBibliographicSearchRequest;
@@ -23,7 +24,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Service("CrossrefDepth")
+@Service(GlobalConstants.CROSSREF_DEPTH)
 @RequiredArgsConstructor
 public class CrossrefDepthProcessorService implements DepthProcessor {
     private final AppProperties properties;
@@ -40,7 +41,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
     }
 
-    private void process(List<AggregatedLinkInfo> result, List<AggregatedLinkInfo> input, BigDecimal depth) throws IOException {
+    private void process(List<AggregatedLinkInfo> result, List<AggregatedLinkInfo> input, BigDecimal depth) {
         depth = depth.add(BigDecimal.ONE);
         if (depth.compareTo(properties.getMaxDepth()) <= 0) {
             result.addAll(input);

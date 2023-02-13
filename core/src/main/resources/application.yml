@@ -5,3 +5,6 @@ crawler:
     baseUrl: http://api.crossref.org
     apiKey:
     secret:
+  scholars:
+    baseUrl: https://serpapi.com
+    apiKey: 267111d446ba95094c614285d6063acf4bc688bd4914482f83ba959a985398eb

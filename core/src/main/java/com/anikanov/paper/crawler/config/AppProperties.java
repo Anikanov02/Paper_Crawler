@@ -15,11 +15,18 @@ public class AppProperties {
     private BigDecimal maxDepth;
     private List<SourceName> sourcePriorityOrder;
     private CrossrefConfig crossref;
+    private ScholarsConfig scholars;
 
     @Data
     public static class CrossrefConfig {
         private String baseUrl;
         private String apiKey;
         private String secret;
+    }
+
+    @Data
+    public static class ScholarsConfig {
+        private String baseUrl;
+        private String apiKey;
     }
 }

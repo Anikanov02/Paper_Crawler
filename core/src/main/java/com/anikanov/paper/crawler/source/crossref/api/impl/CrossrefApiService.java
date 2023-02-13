@@ -17,17 +17,29 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
     }
 
     @Override
-    public CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request) throws IOException {
-        final CrossrefMetadataResponse response = executeSync(getAPIImpl().getWorks(request.getRequestText(), request.getRows(), request.getSelect()));
+    public CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request) {
+        final CrossrefMetadataResponse response;
+        try {
+            response = executeSync(getAPIImpl().getWorks(request.getRequestText(), request.getRows(), request.getSelect()));
+        } catch (IOException e) {
+            log.error("Error occurred (getWorks): message:{}, requesting again...", e.getMessage());
+            return getWorks(request);
+        }
         log(request, response);
         return response;
     }
 
     @Override
-    public CrossrefMetadataResponse getWork(String doi) throws IOException {
-        final CrossrefMetadataResponse response = executeSync(getAPIImpl().getWork(doi));
+    public CrossrefMetadataResponse getWork(String doi) {
+        final CrossrefMetadataResponse response;
+        try {
+            response = executeSync(getAPIImpl().getWork(doi));
+        } catch (IOException e) {
+            log.error("Error occurred (getWork): message:{}, requesting again...", e.getMessage());
+            return getWork(doi);
+        }
         log(doi, response);
-        return executeSync(getAPIImpl().getWork(doi));
+        return response;
     }
 
     private void log(Object request, Object response) {

@@ -13,5 +13,6 @@ public class GlobalConstants {
 
     //Bean names
     public static final String CROSSREF_DEPTH = "CrossrefDepth";
+    public static final String SCHOLARS_DEPTH = "ScholarsDepth";
     public static final String GENERAL_DEPTH = "GeneralDepth";
 }

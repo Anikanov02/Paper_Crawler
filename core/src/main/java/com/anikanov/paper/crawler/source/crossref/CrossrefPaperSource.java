@@ -9,7 +9,6 @@ import com.anikanov.paper.crawler.source.crossref.api.response.CrossrefMetadataR
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -22,17 +21,13 @@ public class CrossrefPaperSource implements SinglePaperSource {
 
     @Override
     public InputStream getData(AggregatedLinkInfo info) {
-        try {
-            final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
-                    .requestText(info.getText())
-                    .rows(1)
-                    .select(String.join(",", selectedFieldsForRequest))
-                    .build();
-            final CrossrefMetadataResponse response = apiService.getWorks(request);
-            return null;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
+                .requestText(info.getText())
+                .rows(1)
+                .select(String.join(",", selectedFieldsForRequest))
+                .build();
+        final CrossrefMetadataResponse response = apiService.getWorks(request);
+        return null;
     }
 
     @Override

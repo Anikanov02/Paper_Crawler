@@ -1,5 +1,6 @@
 package com.anikanov.paper.crawler.controller;
 
+import com.anikanov.paper.crawler.config.AppProperties;
 import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.config.GlobalConstantsUi;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
@@ -7,6 +8,7 @@ import com.anikanov.paper.crawler.service.DepthProcessor;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Spinner;
 import javafx.scene.control.TextArea;
 import javafx.stage.FileChooser;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +40,11 @@ public class ApplicationController {
     @FXML
     private Button selectFileButton;
 
+    @FXML
+    private Spinner<Integer> maxDepthSpinner;
+
+    private final AppProperties properties;
+
     @Qualifier(GlobalConstants.CROSSREF_DEPTH)
     private final DepthProcessor depthProcessorService;
 
@@ -54,6 +62,7 @@ public class ApplicationController {
         });
 
         crawlButton.setOnAction(actionEvent -> {
+            properties.setMaxDepth(new BigDecimal(maxDepthSpinner.getValue()));
             String message = "";
             if (selectedFile == null) {
                 message = "File not selected";
