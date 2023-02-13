@@ -24,9 +24,11 @@ public class LinksDepthProcessorService implements DepthProcessor {
     private final LinkExtractorService extractorService;
     @Qualifier("aggregatedSource")
     private final PaperSource source;
+    private ProgressCallback callback;
 
     @Override
-    public Map<AggregatedLinkInfo, Long> process(InputStream inputStream) throws IOException {
+    public Map<AggregatedLinkInfo, Long> process(InputStream inputStream, ProgressCallback callback) throws IOException {
+        this.callback = callback;
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         process(result, inputStream, BigDecimal.ONE);
         return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
@@ -38,7 +40,7 @@ public class LinksDepthProcessorService implements DepthProcessor {
             final List<AggregatedLinkInfo> paperLinks = extractorService.extract(inputStream);
             result.addAll(paperLinks);
             for (AggregatedLinkInfo info : paperLinks) {
-                final InputStream childStream = source.getData(info);
+                final InputStream childStream = source.getData(info, callback);
                 if (Objects.nonNull(childStream)) {
                     process(result, childStream, depth);
                 }

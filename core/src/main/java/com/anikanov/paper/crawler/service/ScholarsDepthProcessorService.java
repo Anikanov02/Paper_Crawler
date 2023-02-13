@@ -25,9 +25,11 @@ public class ScholarsDepthProcessorService implements DepthProcessor {
     private final AppProperties properties;
     private final ScholarsApiService apiService;
     private final LinkExtractorService extractorService;
+    private ProgressCallback callback;
 
     @Override
-    public Map<AggregatedLinkInfo, Long> process(InputStream inputStream) throws IOException {
+    public Map<AggregatedLinkInfo, Long> process(InputStream inputStream, ProgressCallback callback) throws IOException {
+        this.callback = callback;
         List<AggregatedLinkInfo> inputReferences = extractorService.extract(inputStream);
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         process(result, inputReferences, BigDecimal.ONE);
@@ -39,10 +41,10 @@ public class ScholarsDepthProcessorService implements DepthProcessor {
         if (depth.compareTo(properties.getMaxDepth()) <= 0) {
             result.addAll(input);
             for (AggregatedLinkInfo link : input) {
-                final ScholarsOrganicSearchResponse organicSearchResponse = apiService.getOrganicResults(link.getText());
+                final ScholarsOrganicSearchResponse organicSearchResponse = apiService.getOrganicResults(link.getText(), callback);
                 if (!organicSearchResponse.getOrganicResults().isEmpty()) {
                     ScholarsOrganicSearchResponse.OrganicResponse res = organicSearchResponse.getOrganicResults().get(0);
-                    final ScholarsMetadataResponse response = apiService.getSearchMetadata(res.getResultId());
+                    final ScholarsMetadataResponse response = apiService.getSearchMetadata(res.getResultId(), callback);
                     process(result, toAggregatedLinks(response), depth);
                 }
             }

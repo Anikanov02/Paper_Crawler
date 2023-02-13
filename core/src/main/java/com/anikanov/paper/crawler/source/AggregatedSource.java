@@ -3,6 +3,7 @@ package com.anikanov.paper.crawler.source;
 import com.anikanov.paper.crawler.config.AppProperties;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.domain.SourceName;
+import com.anikanov.paper.crawler.service.ProgressCallback;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,7 +19,7 @@ public class AggregatedSource implements PaperSource {
     private final List<SinglePaperSource> sources;
 
     @Override
-    public InputStream getData(AggregatedLinkInfo info) {
+    public InputStream getData(AggregatedLinkInfo info, ProgressCallback callback) {
         for (SourceName sourceName : properties.getSourcePriorityOrder()) {
             final Optional<SinglePaperSource> sourceOpt = sources.stream()
                     .filter(singlePaperSource -> singlePaperSource.getSourceName().equals(sourceName)).findAny();
@@ -27,7 +28,7 @@ public class AggregatedSource implements PaperSource {
             }
             final SinglePaperSource source = sourceOpt.get();
 
-            final InputStream stream = source.getData(info);
+            final InputStream stream = source.getData(info, callback);
             if (Objects.nonNull(stream)) {
                 return stream;
             }

@@ -1,5 +1,6 @@
 package com.anikanov.paper.crawler.source.crossref.api.impl;
 
+import com.anikanov.paper.crawler.service.ProgressCallback;
 import com.anikanov.paper.crawler.source.crossref.api.interfaces.CrossrefApi;
 import com.anikanov.paper.crawler.source.crossref.api.interfaces.CrossrefApiRetrofit;
 import com.anikanov.paper.crawler.source.crossref.api.request.WorksBibliographicSearchRequest;
@@ -7,6 +8,7 @@ import com.anikanov.paper.crawler.source.crossref.api.response.CrossrefMetadataR
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.List;
 
 @Slf4j
 public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetrofit> implements CrossrefApi {
@@ -17,28 +19,30 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
     }
 
     @Override
-    public CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request) {
+    public CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request, ProgressCallback callback) {
         final CrossrefMetadataResponse response;
         try {
             response = executeSync(getAPIImpl().getWorks(request.getRequestText(), request.getRows(), request.getSelect()));
+            callback.callback();
+            log(request, response);
         } catch (IOException e) {
             log.error("Error occurred (getWorks): message:{}, requesting again...", e.getMessage());
-            return getWorks(request);
+            return getWorks(request, callback);
         }
-        log(request, response);
         return response;
     }
 
     @Override
-    public CrossrefMetadataResponse getWork(String doi) {
+    public CrossrefMetadataResponse getWork(String doi, ProgressCallback callback) {
         final CrossrefMetadataResponse response;
         try {
             response = executeSync(getAPIImpl().getWork(doi));
+            callback.callback();
+            log(doi, response);
         } catch (IOException e) {
             log.error("Error occurred (getWork): message:{}, requesting again...", e.getMessage());
-            return getWork(doi);
+            return getWork(doi, callback);
         }
-        log(doi, response);
         return response;
     }
 

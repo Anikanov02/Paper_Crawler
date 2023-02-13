@@ -11,7 +11,9 @@
       <Button fx:id="selectFileButton" layoutX="35.0" layoutY="51.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="95.0" text="Select File" />
       <Label fx:id="infoLabel" layoutX="35.0" layoutY="22.0" prefHeight="17.0" prefWidth="163.0" text="File not selected" />
       <Button fx:id="crawlButton" layoutX="35.0" layoutY="103.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="95.0" text="Crawl" />
-      <TextArea fx:id="outputArea" layoutX="187.0" layoutY="22.0" prefHeight="592.0" prefWidth="728.0" promptText="Output:" />
-      <Spinner fx:id="maxDepthSpinner" layoutX="35.0" layoutY="156.0" prefHeight="25.0" prefWidth="65.0" min="1" max="10"/>
+      <TextArea fx:id="outputArea" editable="false" layoutX="187.0" layoutY="22.0" prefHeight="592.0" prefWidth="728.0" promptText="Output:" />
+      <Spinner fx:id="maxDepthSpinner" layoutX="35.0" layoutY="156.0" max="10" min="1" prefHeight="25.0" prefWidth="65.0" />
+      <Label fx:id="progressLabel" layoutX="35.0" layoutY="209.0" prefHeight="17.0" prefWidth="110.0"/>
+      <Label fx:id="processInfoLabel" layoutX="35.0" layoutY="192.0" prefHeight="17.0" prefWidth="110.0" text="Executed requests:" />
    </children>
 </AnchorPane>

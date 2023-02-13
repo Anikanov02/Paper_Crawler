@@ -5,6 +5,10 @@ import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.config.GlobalConstantsUi;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.service.DepthProcessor;
+import com.anikanov.paper.crawler.service.ProgressCallback;
+import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -38,6 +42,9 @@ public class ApplicationController {
     private TextArea outputArea;
 
     @FXML
+    private Label progressLabel;
+
+    @FXML
     private Button selectFileButton;
 
     @FXML
@@ -52,8 +59,14 @@ public class ApplicationController {
 
     private File selectedFile = null;
 
+    private Long executed = 0L;
+
+    private StringProperty stringProperty = new SimpleStringProperty();
+
     @FXML
     private void initialize() {
+        progressLabel.textProperty().bind(stringProperty);
+
         selectFileButton.setOnAction(actionEvent -> {
             selectedFile = fileChooser.showOpenDialog(infoLabel.getScene().getWindow());
             if (selectedFile != null) {
@@ -62,6 +75,7 @@ public class ApplicationController {
         });
 
         crawlButton.setOnAction(actionEvent -> {
+            flushProgress();
             properties.setMaxDepth(new BigDecimal(maxDepthSpinner.getValue()));
             String message = "";
             if (selectedFile == null) {
@@ -75,7 +89,7 @@ public class ApplicationController {
             } else {
                 try {
                     final StringBuilder output = new StringBuilder("Result: ").append(System.lineSeparator());
-                    final Map<AggregatedLinkInfo, Long> result = depthProcessorService.process(new FileInputStream(selectedFile));
+                    final Map<AggregatedLinkInfo, Long> result = depthProcessorService.process(new FileInputStream(selectedFile), new AppCallback());
                     final List<AggregatedLinkInfo> keySet = result.keySet().stream().toList();
                     for (int i = 0; i < keySet.size(); i++) {
                         final AggregatedLinkInfo info = keySet.get(i);
@@ -96,6 +110,11 @@ public class ApplicationController {
         });
     }
 
+    private void flushProgress() {
+        executed = 0L;
+        stringProperty.set("0");
+    }
+
     private boolean notADirectory(File file) {
         return Optional.of(selectedFile).filter(f -> f.getName().contains(".")).isPresent();
     }
@@ -104,5 +123,13 @@ public class ApplicationController {
         final String ext = Optional.of(selectedFile).filter(f -> f.getName().contains("."))
                 .map(f -> f.getName().substring(f.getName().lastIndexOf(".") + 1)).orElse("");
         return GlobalConstantsUi.SUPPORTED_EXTENSIONS.stream().anyMatch(allowed -> allowed.equalsIgnoreCase(ext));
+    }
+
+    public class AppCallback extends ProgressCallback {
+        @Override
+        public void callback() {
+            executed++;
+            stringProperty.set(String.valueOf(executed));
+        }
     }
 }

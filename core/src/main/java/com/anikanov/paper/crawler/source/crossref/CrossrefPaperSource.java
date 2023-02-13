@@ -1,6 +1,7 @@
 package com.anikanov.paper.crawler.source.crossref;
 
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
+import com.anikanov.paper.crawler.service.ProgressCallback;
 import com.anikanov.paper.crawler.source.SinglePaperSource;
 import com.anikanov.paper.crawler.domain.SourceName;
 import com.anikanov.paper.crawler.source.crossref.api.impl.CrossrefApiService;
@@ -20,13 +21,13 @@ public class CrossrefPaperSource implements SinglePaperSource {
     private static final List<String> selectedFieldsForRequest = List.of("DOI", "reference");
 
     @Override
-    public InputStream getData(AggregatedLinkInfo info) {
+    public InputStream getData(AggregatedLinkInfo info, ProgressCallback callback) {
         final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
                 .requestText(info.getText())
                 .rows(1)
                 .select(String.join(",", selectedFieldsForRequest))
                 .build();
-        final CrossrefMetadataResponse response = apiService.getWorks(request);
+        final CrossrefMetadataResponse response = apiService.getWorks(request, callback);
         return null;
     }
 

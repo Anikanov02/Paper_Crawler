@@ -31,13 +31,15 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
     private final CrossrefApiService apiService;
     private final LinkExtractorService extractorService;
     private final ExecutorService executorService;
+    private ProgressCallback callback;
 
     @Override
-    public Map<AggregatedLinkInfo, Long> process(InputStream inputStream) throws IOException {
+    public Map<AggregatedLinkInfo, Long> process(InputStream inputStream, ProgressCallback callback) throws IOException {
+        this.callback = callback;
         List<AggregatedLinkInfo> inputReferences = extractorService.extract(inputStream);
         inputReferences = enrichLinksAndFilterIrrelevant(inputReferences);
         final List<AggregatedLinkInfo> result = new ArrayList<>();
-        process(result, inputReferences, BigDecimal.ONE);
+        process(result, inputReferences, BigDecimal.ZERO);
         return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
     }
 
@@ -47,8 +49,10 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
             result.addAll(input);
             for (AggregatedLinkInfo link : input) {
                 if (Objects.nonNull(link.getDoi())) {
-                    final CrossrefMetadataResponse response = apiService.getWork(link.getDoi());
-                    process(result, toAggregatedLinks(response), depth);
+                    final CrossrefMetadataResponse response = apiService.getWork(link.getDoi(), callback);
+                    if (!response.getItems().isEmpty()) {
+                        process(result, toAggregatedLinks(response), depth);
+                    }
                 }
             }
         }
@@ -61,7 +65,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
             final List<Future<CrossrefMetadataResponse>> responseFutures = new ArrayList<>();
             for (AggregatedLinkInfo link : input) {
                 if (Objects.nonNull(link.getDoi())) {
-                    final Future<CrossrefMetadataResponse> respFuture = executorService.submit(() -> apiService.getWork(link.getDoi()));
+                    final Future<CrossrefMetadataResponse> respFuture = executorService.submit(() -> apiService.getWork(link.getDoi(), callback));
                     responseFutures.add(respFuture);
                 }
             }
@@ -109,7 +113,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
                     .rows(1)
                     .select("DOI")
                     .build();
-            final CrossrefMetadataResponse response = apiService.getWorks(request);
+            final CrossrefMetadataResponse response = apiService.getWorks(request, callback);
             if (Objects.isNull(response.getItems()) || response.getItems().isEmpty()) {
                 //nothing found then remove
                 result.remove(info);
