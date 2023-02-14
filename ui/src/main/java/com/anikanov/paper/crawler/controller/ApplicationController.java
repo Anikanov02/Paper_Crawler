@@ -9,6 +9,7 @@ import com.anikanov.paper.crawler.service.ProgressCallback;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -27,6 +28,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 @Component
 @FxmlView("main-stage.fxml")
@@ -55,18 +57,16 @@ public class ApplicationController {
     @Qualifier(GlobalConstants.CROSSREF_DEPTH)
     private final DepthProcessor depthProcessorService;
 
+    private final ExecutorService executorService;
+
     private final FileChooser fileChooser = new FileChooser();
 
     private File selectedFile = null;
 
     private Long executed = 0L;
 
-    private StringProperty stringProperty = new SimpleStringProperty();
-
     @FXML
     private void initialize() {
-        progressLabel.textProperty().bind(stringProperty);
-
         selectFileButton.setOnAction(actionEvent -> {
             selectedFile = fileChooser.showOpenDialog(infoLabel.getScene().getWindow());
             if (selectedFile != null) {
@@ -75,44 +75,46 @@ public class ApplicationController {
         });
 
         crawlButton.setOnAction(actionEvent -> {
-            flushProgress();
-            properties.setMaxDepth(new BigDecimal(maxDepthSpinner.getValue()));
-            String message = "";
-            if (selectedFile == null) {
-                message = "File not selected";
-            } else if (!selectedFile.exists()) {
-                message = "File not exists";
-            } else if (!notADirectory(selectedFile)) {
-                message = "File should not be a directory";
-            } else if (!acceptableExtension(selectedFile)) {
-                message = "File should have one of following extensions: " + String.join(",", GlobalConstantsUi.SUPPORTED_EXTENSIONS);
-            } else {
-                try {
-                    final StringBuilder output = new StringBuilder("Result: ").append(System.lineSeparator());
-                    final Map<AggregatedLinkInfo, Long> result = depthProcessorService.process(new FileInputStream(selectedFile), new AppCallback());
-                    final List<AggregatedLinkInfo> keySet = result.keySet().stream().toList();
-                    for (int i = 0; i < keySet.size(); i++) {
-                        final AggregatedLinkInfo info = keySet.get(i);
-                        output.append("Paper ").append(i).append(":").append(System.lineSeparator())
-                                .append("INFO: ").append(System.lineSeparator())
-                                .append("TEXT REFERENCE: ").append(info.getText()).append(System.lineSeparator())
-                                .append("HYPERLINK: ").append(info.getLink()).append(System.lineSeparator())
-                                .append("Occurrences: ").append(result.get(info)).append(System.lineSeparator())
-                                .append("----------------------------------------------------------")
-                                .append(System.lineSeparator());
+            executorService.submit(() -> {
+                flushProgress();
+                properties.setMaxDepth(new BigDecimal(maxDepthSpinner.getValue()));
+                String message = "";
+                if (selectedFile == null) {
+                    message = "File not selected";
+                } else if (!selectedFile.exists()) {
+                    message = "File not exists";
+                } else if (!notADirectory(selectedFile)) {
+                    message = "File should not be a directory";
+                } else if (!acceptableExtension(selectedFile)) {
+                    message = "File should have one of following extensions: " + String.join(",", GlobalConstantsUi.SUPPORTED_EXTENSIONS);
+                } else {
+                    try {
+                        final StringBuilder output = new StringBuilder("Result: ").append(System.lineSeparator());
+                        final Map<AggregatedLinkInfo, Long> result = depthProcessorService.process(new FileInputStream(selectedFile), new AppCallback());
+                        final List<AggregatedLinkInfo> keySet = result.keySet().stream().toList();
+                        for (int i = 0; i < keySet.size(); i++) {
+                            final AggregatedLinkInfo info = keySet.get(i);
+                            output.append("Paper ").append(i).append(":").append(System.lineSeparator())
+                                    .append("INFO: ").append(System.lineSeparator())
+                                    .append("TEXT REFERENCE: ").append(info.getText()).append(System.lineSeparator())
+                                    .append("HYPERLINK: ").append(info.getLink()).append(System.lineSeparator())
+                                    .append("Occurrences: ").append(result.get(info)).append(System.lineSeparator())
+                                    .append("----------------------------------------------------------")
+                                    .append(System.lineSeparator());
+                        }
+                        message = output.toString();
+                    } catch (IOException e) {
+                        message = e.getMessage();
                     }
-                    message = output.toString();
-                } catch (IOException e) {
-                    message = e.getMessage();
                 }
-            }
-            outputArea.setText(message);
+                outputArea.setText(message);
+            });
         });
     }
 
     private void flushProgress() {
         executed = 0L;
-        stringProperty.set("0");
+        Platform.runLater(() -> progressLabel.setText(String.valueOf(executed)));
     }
 
     private boolean notADirectory(File file) {
@@ -129,7 +131,7 @@ public class ApplicationController {
         @Override
         public void callback() {
             executed++;
-            stringProperty.set(String.valueOf(executed));
+            Platform.runLater(() -> progressLabel.setText(String.valueOf(executed)));
         }
     }
 }

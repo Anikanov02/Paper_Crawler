@@ -15,5 +15,5 @@ public interface CrossrefApiRetrofit {
             @Query("select") String select);
 
     @GET("works/{doi}")
-    Call<CrossrefResponse<CrossrefMetadataResponse>> getWork(@Path("doi") String doi);
+    Call<CrossrefResponse<CrossrefMetadataResponse.Item>> getWork(@Path("doi") String doi);
 }

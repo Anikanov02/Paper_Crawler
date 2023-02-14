@@ -49,9 +49,13 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
             result.addAll(input);
             for (AggregatedLinkInfo link : input) {
                 if (Objects.nonNull(link.getDoi())) {
-                    final CrossrefMetadataResponse response = apiService.getWork(link.getDoi(), callback);
-                    if (!response.getItems().isEmpty()) {
-                        process(result, toAggregatedLinks(response), depth);
+                    final CrossrefMetadataResponse.Item response = apiService.getWork(link.getDoi(), callback);
+                    if (Objects.nonNull(response)) {
+                        if (Objects.nonNull(response.getReference())) {
+                            process(result, toAggregatedLinks(response), depth);
+                        }
+                    } else {
+                        result.remove(link);
                     }
                 }
             }
@@ -62,15 +66,15 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         depth = depth.add(BigDecimal.ONE);
         if (depth.compareTo(properties.getMaxDepth()) <= 0) {
             result.addAll(input);
-            final List<Future<CrossrefMetadataResponse>> responseFutures = new ArrayList<>();
+            final List<Future<CrossrefMetadataResponse.Item>> responseFutures = new ArrayList<>();
             for (AggregatedLinkInfo link : input) {
                 if (Objects.nonNull(link.getDoi())) {
-                    final Future<CrossrefMetadataResponse> respFuture = executorService.submit(() -> apiService.getWork(link.getDoi(), callback));
+                    final Future<CrossrefMetadataResponse.Item> respFuture = executorService.submit(() -> apiService.getWork(link.getDoi(), callback));
                     responseFutures.add(respFuture);
                 }
             }
 
-            final List<CrossrefMetadataResponse> responses = responseFutures.stream().map(respF -> {
+            final List<CrossrefMetadataResponse.Item> responses = responseFutures.stream().map(respF -> {
                 try {
                     return respF.get();
                 } catch (InterruptedException | ExecutionException e) {
@@ -78,14 +82,13 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
                 }
             }).toList();
 
-            for (CrossrefMetadataResponse response : responses) {
+            for (CrossrefMetadataResponse.Item response : responses) {
                 processParallel(result, toAggregatedLinks(response), depth);
             }
         }
     }
 
-    private List<AggregatedLinkInfo> toAggregatedLinks(CrossrefMetadataResponse response) {
-        final CrossrefMetadataResponse.Item item = response.getItems().get(0);
+    private List<AggregatedLinkInfo> toAggregatedLinks(CrossrefMetadataResponse.Item item) {
         return item.getReference().stream()
                 .filter(ref -> Objects.nonNull(ref.getDoi()))
                 .map(ref -> {

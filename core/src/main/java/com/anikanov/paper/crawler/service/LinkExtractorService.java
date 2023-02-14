@@ -26,11 +26,16 @@ public class LinkExtractorService {
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         final PdfReader reader = new PdfReader(inputStream);
 
-        for (int i = 1; i <= reader.getNumberOfPages(); ++i) {
+        for (int i = reader.getNumberOfPages() - 1; i >= 0; i--) {
             TextExtractionStrategy strategy = new SimpleTextExtractionStrategy();
             String text = PdfTextExtractor.getTextFromPage(reader, i, strategy);
             final List<PdfAnnotation.PdfImportedLink> links = reader.getLinks(i);
-            result.addAll(extractLinksFromPageIfExist(text, links));
+            final List<AggregatedLinkInfo> linksFromPage = extractLinksFromPageIfExist(text, links);
+            if (linksFromPage.isEmpty() && !result.isEmpty()) {
+                break;
+            } else {
+                result.addAll(linksFromPage);
+            }
         }
 
         reader.close();

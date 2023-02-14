@@ -33,8 +33,8 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
     }
 
     @Override
-    public CrossrefMetadataResponse getWork(String doi, ProgressCallback callback) {
-        final CrossrefMetadataResponse response;
+    public CrossrefMetadataResponse.Item getWork(String doi, ProgressCallback callback) {
+        final CrossrefMetadataResponse.Item response;
         try {
             response = executeSync(getAPIImpl().getWork(doi));
             callback.callback();

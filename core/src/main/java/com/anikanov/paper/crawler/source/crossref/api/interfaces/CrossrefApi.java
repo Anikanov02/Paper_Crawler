@@ -9,5 +9,5 @@ import java.io.IOException;
 public interface CrossrefApi {
     CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request, ProgressCallback callback) throws IOException;
 
-    CrossrefMetadataResponse getWork(String doi, ProgressCallback callback) throws IOException;
+    CrossrefMetadataResponse.Item getWork(String doi, ProgressCallback callback) throws IOException;
 }
