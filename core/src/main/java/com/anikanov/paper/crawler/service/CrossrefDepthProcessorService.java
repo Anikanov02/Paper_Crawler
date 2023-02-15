@@ -108,19 +108,17 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
 
     //extracts DOIs for input links
     private List<AggregatedLinkInfo> enrichLinksAndFilterIrrelevant(List<AggregatedLinkInfo> links) throws IOException {
-        final List<AggregatedLinkInfo> result = new ArrayList<>(links);
+        final List<AggregatedLinkInfo> result = new ArrayList<>();
         log.info("Applying DOIs to input links");
-        for (AggregatedLinkInfo info : result) {
+        for (AggregatedLinkInfo info : links) {
             final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
                     .requestText(info.getText())
                     .rows(1)
                     .select("DOI")
                     .build();
             final CrossrefMetadataResponse response = apiService.getWorks(request, callback);
-            if (Objects.isNull(response.getItems()) || response.getItems().isEmpty()) {
-                //nothing found then remove
-                result.remove(info);
-            } else {
+            if (Objects.nonNull(response) && Objects.nonNull(response.getItems()) && !response.getItems().isEmpty()) {
+                result.add(info);
                 info.setDoi(response.getItems().get(0).getDoi());
             }
         }

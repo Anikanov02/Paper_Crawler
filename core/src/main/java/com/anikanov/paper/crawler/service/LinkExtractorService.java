@@ -2,8 +2,6 @@ package com.anikanov.paper.crawler.service;
 
 import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
-import com.itextpdf.text.pdf.PdfAnnotation;
-import com.itextpdf.text.pdf.PdfName;
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.parser.PdfTextExtractor;
 import com.itextpdf.text.pdf.parser.SimpleTextExtractionStrategy;
@@ -22,19 +20,21 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class LinkExtractorService {
+    private static final int MAX_LINK_LENGTH = 1000;
     public List<AggregatedLinkInfo> extract(InputStream inputStream) throws IOException {
-        final List<AggregatedLinkInfo> result = new ArrayList<>();
+        List<AggregatedLinkInfo> result = new ArrayList<>();
         final PdfReader reader = new PdfReader(inputStream);
 
-        for (int i = reader.getNumberOfPages() - 1; i >= 0; i--) {
-            TextExtractionStrategy strategy = new SimpleTextExtractionStrategy();
-            String text = PdfTextExtractor.getTextFromPage(reader, i, strategy);
-            final List<PdfAnnotation.PdfImportedLink> links = reader.getLinks(i);
-            final List<AggregatedLinkInfo> linksFromPage = extractLinksFromPageIfExist(text, links);
-            if (linksFromPage.isEmpty() && !result.isEmpty()) {
-                break;
-            } else {
-                result.addAll(linksFromPage);
+        final TextExtractionStrategy strategy = new SimpleTextExtractionStrategy();
+        final StringBuilder fullText = new StringBuilder();
+        for (int i = 1; i <= reader.getNumberOfPages(); i++) {
+            fullText.append(PdfTextExtractor.getTextFromPage(reader, i, strategy));
+        }
+
+        for (String regex : GlobalConstants.linkMatchingRegexes) {
+            final List<AggregatedLinkInfo> regexSpecificResult = new ArrayList<>(extractLinksFromPageIfExist(fullText.toString(), regex));
+            if (regexSpecificResult.size() > result.size()) {
+                result = regexSpecificResult;
             }
         }
 
@@ -42,31 +42,23 @@ public class LinkExtractorService {
         return result;
     }
 
-    private List<AggregatedLinkInfo> extractLinksFromPageIfExist(String pageText, List<PdfAnnotation.PdfImportedLink> links) {
+    private List<AggregatedLinkInfo> extractLinksFromPageIfExist(String pageText, String regex) {
         List<String> textLinks = new ArrayList<>();
-        for (String regex : GlobalConstants.linkMatchingRegexes) {
-            final List<String> potentialResult = new ArrayList<>();
-            final Matcher matcher = Pattern.compile(regex).matcher(pageText);
-            while (matcher.find()) {
-                potentialResult.add(matcher.group(1));
-            }
-            if (potentialResult.size() > textLinks.size()) {
-                textLinks = potentialResult;
+        final Matcher matcher = Pattern.compile(regex).matcher(pageText);
+        long currRef = 1;
+        while (matcher.find()) {
+            final String indexSpecificRegex = regex.replace("\\d+", String.valueOf(currRef));
+            if (matcher.group(0).matches(indexSpecificRegex)) {
+                currRef++;
+                String text = matcher.group(1);
+                if (text.length() > MAX_LINK_LENGTH) {
+                    text = text.substring(0, MAX_LINK_LENGTH - 1);
+                }
+                textLinks.add(text);
             }
         }
-        return applyLinks(textLinks, links);
-    }
-
-    private List<AggregatedLinkInfo> applyLinks(List<String> textLinks, List<PdfAnnotation.PdfImportedLink> links) {
-        return textLinks.stream().map(textLink -> {
-            final PdfAnnotation.PdfImportedLink link = links.stream().filter(l -> {
-                String linkText = new String(l.getParameters().get(PdfName.ACTUALTEXT).getBytes());
-                return linkText.contains(textLink.trim());
-            }).findAny().orElse(null);
-            return AggregatedLinkInfo.builder()
-                    .text(textLink)
-                    .link(link)
-                    .build();
-        }).collect(Collectors.toList());
+        return textLinks.stream().map(txtLink -> AggregatedLinkInfo.builder()
+                .text(txtLink)
+                .build()).collect(Collectors.toList());
     }
 }

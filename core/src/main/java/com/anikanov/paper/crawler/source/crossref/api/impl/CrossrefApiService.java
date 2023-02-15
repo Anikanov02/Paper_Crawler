@@ -26,8 +26,15 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
             callback.callback();
             log(request, response);
         } catch (IOException e) {
-            log.error("Error occurred (getWorks): message:{}, requesting again...", e.getMessage());
-            return getWorks(request, callback);
+            String message = e.getMessage();
+            log.error("Error occurred (getWorks): message:{}", message);
+            if (message.contains("timeout") || message.contains("Read timed out")) {
+                log.info("timeout encountered, requesting again...");
+                return getWorks(request, callback);
+            } else {
+                log.info("invalid request, skipping");
+                return null;
+            }
         }
         return response;
     }
@@ -40,8 +47,15 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
             callback.callback();
             log(doi, response);
         } catch (IOException e) {
-            log.error("Error occurred (getWork): message:{}, requesting again...", e.getMessage());
-            return getWork(doi, callback);
+            String message = e.getMessage();
+            log.error("Error occurred (getWorks): message:{}", message);
+            if (message.contains("timeout")) {
+                log.info("timeout encountered, requesting again...");
+                return getWork(doi, callback);
+            } else {
+                log.info("invalid request, skipping");
+                return null;
+            }
         }
         return response;
     }

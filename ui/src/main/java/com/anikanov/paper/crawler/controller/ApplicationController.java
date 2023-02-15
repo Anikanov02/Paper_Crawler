@@ -94,10 +94,10 @@ public class ApplicationController {
                         final List<AggregatedLinkInfo> keySet = result.keySet().stream().toList();
                         for (int i = 0; i < keySet.size(); i++) {
                             final AggregatedLinkInfo info = keySet.get(i);
-                            output.append("Paper ").append(i).append(":").append(System.lineSeparator())
+                            output.append("Paper ").append(i + 1).append(":").append(System.lineSeparator())
                                     .append("INFO: ").append(System.lineSeparator())
                                     .append("TEXT REFERENCE: ").append(info.getText()).append(System.lineSeparator())
-                                    .append("HYPERLINK: ").append(info.getLink()).append(System.lineSeparator())
+                                    .append("DOI: ").append(info.getDoi()).append(System.lineSeparator())
                                     .append("Occurrences: ").append(result.get(info)).append(System.lineSeparator())
                                     .append("----------------------------------------------------------")
                                     .append(System.lineSeparator());
