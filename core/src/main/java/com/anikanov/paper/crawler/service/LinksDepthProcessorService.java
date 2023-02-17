@@ -34,6 +34,11 @@ public class LinksDepthProcessorService implements DepthProcessor {
         return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
     }
 
+    @Override
+    public Map<AggregatedLinkInfo, Long> process(String doi, ProgressCallback callback) {
+        return null;
+    }
+
     private void process(List<AggregatedLinkInfo> result, InputStream inputStream, BigDecimal depth) throws IOException {
         if (depth.compareTo(properties.getMaxDepth()) <= 0) {
             depth = depth.add(BigDecimal.ONE);

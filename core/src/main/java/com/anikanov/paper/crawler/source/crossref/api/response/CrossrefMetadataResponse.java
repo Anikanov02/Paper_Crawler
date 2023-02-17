@@ -39,6 +39,7 @@ public class CrossrefMetadataResponse {
             @JsonProperty("firstPage")
             private String firstPage;
             private String isbn;
+            @JsonProperty("DOI")
             private String doi;
             private String component;
             @JsonProperty("article-title")

@@ -8,7 +8,6 @@ import com.anikanov.paper.crawler.source.crossref.api.response.CrossrefMetadataR
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.List;
 
 @Slf4j
 public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetrofit> implements CrossrefApi {
@@ -23,7 +22,7 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
         final CrossrefMetadataResponse response;
         try {
             response = executeSync(getAPIImpl().getWorks(request.getRequestText(), request.getRows(), request.getSelect()));
-            callback.callback();
+            callback.notifyMinor();
             log(request, response);
         } catch (IOException e) {
             String message = e.getMessage();
@@ -44,7 +43,7 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
         final CrossrefMetadataResponse.Item response;
         try {
             response = executeSync(getAPIImpl().getWork(doi));
-            callback.callback();
+            callback.notifyMinor();
             log(doi, response);
         } catch (IOException e) {
             String message = e.getMessage();

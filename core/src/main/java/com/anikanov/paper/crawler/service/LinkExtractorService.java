@@ -54,6 +54,7 @@ public class LinkExtractorService {
                 if (text.length() > MAX_LINK_LENGTH) {
                     text = text.substring(0, MAX_LINK_LENGTH - 1);
                 }
+                //todo add to map
                 textLinks.add(text);
             }
         }

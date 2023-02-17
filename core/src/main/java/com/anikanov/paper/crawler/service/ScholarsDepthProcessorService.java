@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -34,6 +33,12 @@ public class ScholarsDepthProcessorService implements DepthProcessor {
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         process(result, inputReferences, BigDecimal.ONE);
         return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+    }
+
+    @Override
+    public Map<AggregatedLinkInfo, Long> process(String doi, ProgressCallback callback) {
+
+        return null;
     }
 
     private void process(List<AggregatedLinkInfo> result, List<AggregatedLinkInfo> input, BigDecimal depth) {

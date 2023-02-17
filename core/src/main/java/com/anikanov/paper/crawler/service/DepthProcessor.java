@@ -8,4 +8,6 @@ import java.util.Map;
 
 public interface DepthProcessor {
     Map<AggregatedLinkInfo, Long> process(InputStream inputStream, ProgressCallback callback) throws IOException;
+
+    Map<AggregatedLinkInfo, Long> process(String doi, ProgressCallback callback);
 }

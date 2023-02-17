@@ -2,15 +2,10 @@ package com.anikanov.paper.crawler.service;
 
 import lombok.Data;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.math.BigDecimal;
 
 @Data
 public abstract class ProgressCallback {
-    private static final List<ProgressCallback> callbacks = new ArrayList<>();
-    public abstract void callback();
-
-    public static void registerCallback(ProgressCallback callback) {
-        callbacks.add(callback);
-    }
+    public abstract void notifyMinor();
+    public abstract void notifyMajor(Long newLayerRequestCount, BigDecimal depth);
 }

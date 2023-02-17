@@ -31,38 +31,49 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
     private final CrossrefApiService apiService;
     private final LinkExtractorService extractorService;
     private final ExecutorService executorService;
-    private ProgressCallback callback;
 
     @Override
     public Map<AggregatedLinkInfo, Long> process(InputStream inputStream, ProgressCallback callback) throws IOException {
-        this.callback = callback;
         List<AggregatedLinkInfo> inputReferences = extractorService.extract(inputStream);
-        inputReferences = enrichLinksAndFilterIrrelevant(inputReferences);
+        inputReferences = enrichLinksAndFilterIrrelevant(inputReferences, callback);
         final List<AggregatedLinkInfo> result = new ArrayList<>();
-        process(result, inputReferences, BigDecimal.ZERO);
+        process(result, inputReferences, BigDecimal.ONE, callback);
         return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
     }
 
-    private void process(List<AggregatedLinkInfo> result, List<AggregatedLinkInfo> input, BigDecimal depth) {
+    @Override
+    public Map<AggregatedLinkInfo, Long> process(String doi, ProgressCallback callback) {
+        final List<AggregatedLinkInfo> result = new ArrayList<>();
+        callback.notifyMajor(1L, BigDecimal.ONE);
+        final CrossrefMetadataResponse.Item response = apiService.getWork(doi, callback);
+        process(result, toAggregatedLinks(response), BigDecimal.ONE, callback);
+        return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+    }
+
+    private void process(List<AggregatedLinkInfo> result, List<AggregatedLinkInfo> input, BigDecimal depth, ProgressCallback callback) {
         depth = depth.add(BigDecimal.ONE);
+        result.addAll(input);
         if (depth.compareTo(properties.getMaxDepth()) <= 0) {
-            result.addAll(input);
+            List<AggregatedLinkInfo> layerData = new ArrayList<>();
+            input = input.stream().distinct().collect(Collectors.toList());
+            callback.notifyMajor((long) input.size(), depth);
             for (AggregatedLinkInfo link : input) {
                 if (Objects.nonNull(link.getDoi())) {
                     final CrossrefMetadataResponse.Item response = apiService.getWork(link.getDoi(), callback);
                     if (Objects.nonNull(response)) {
                         if (Objects.nonNull(response.getReference())) {
-                            process(result, toAggregatedLinks(response), depth);
+                            layerData.addAll(toAggregatedLinks(response));
                         }
                     } else {
                         result.remove(link);
                     }
                 }
             }
+            process(result, layerData, depth, callback);
         }
     }
 
-    private void processParallel(List<AggregatedLinkInfo> result, List<AggregatedLinkInfo> input, BigDecimal depth) throws IOException {
+    private void processParallel(List<AggregatedLinkInfo> result, List<AggregatedLinkInfo> input, BigDecimal depth, ProgressCallback callback) throws IOException {
         depth = depth.add(BigDecimal.ONE);
         if (depth.compareTo(properties.getMaxDepth()) <= 0) {
             result.addAll(input);
@@ -83,7 +94,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
             }).toList();
 
             for (CrossrefMetadataResponse.Item response : responses) {
-                processParallel(result, toAggregatedLinks(response), depth);
+                processParallel(result, toAggregatedLinks(response), depth, callback);
             }
         }
     }
@@ -107,9 +118,10 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
     }
 
     //extracts DOIs for input links
-    private List<AggregatedLinkInfo> enrichLinksAndFilterIrrelevant(List<AggregatedLinkInfo> links) throws IOException {
+    private List<AggregatedLinkInfo> enrichLinksAndFilterIrrelevant(List<AggregatedLinkInfo> links, ProgressCallback callback) throws IOException {
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         log.info("Applying DOIs to input links");
+        callback.notifyMajor((long) links.size(), BigDecimal.ONE);
         for (AggregatedLinkInfo info : links) {
             final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
                     .requestText(info.getText())

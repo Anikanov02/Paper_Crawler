@@ -9,7 +9,6 @@ import com.anikanov.paper.crawler.source.scholars.api.response.ScholarsOrganicSe
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.List;
 
 @Slf4j
 public class ScholarsApiService extends ScholarsApiRetrofitImpl<ScholarsApiRetrofit> implements ScholarsApi {
@@ -23,7 +22,7 @@ public class ScholarsApiService extends ScholarsApiRetrofitImpl<ScholarsApiRetro
         final ScholarsOrganicSearchResponse response;
         try {
             response = executeSync(getAPIImpl().getOrganicResults(Engine.ORGANIC, query, this.apiKey));
-            callback.callback();
+            callback.notifyMinor();
             log(query, response);
         } catch (IOException e) {
             log.error("Error occurred (getOrganicResults): message:{}, requesting again...", e.getMessage());
@@ -37,7 +36,7 @@ public class ScholarsApiService extends ScholarsApiRetrofitImpl<ScholarsApiRetro
         final ScholarsMetadataResponse response;
         try {
             response = executeSync(getAPIImpl().getMetadata(Engine.CITE, query, this.apiKey));
-            callback.callback();
+            callback.notifyMinor();
             log(query, response);
         } catch (IOException e) {
             log.error("Error occurred (getSearchMetadata): message:{}, requesting again...", e.getMessage());
