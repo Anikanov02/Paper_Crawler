@@ -4,6 +4,7 @@ import com.anikanov.paper.crawler.config.AppProperties;
 import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.config.GlobalConstantsUi;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
+import com.anikanov.paper.crawler.service.CrossrefDepthProcessorService;
 import com.anikanov.paper.crawler.service.DepthProcessor;
 import com.anikanov.paper.crawler.service.ProgressCallback;
 import javafx.application.Platform;
@@ -43,6 +44,9 @@ public class ApplicationController {
 
     @FXML
     private TextArea outputArea;
+
+    @FXML
+    private Spinner<Integer> outputLimitSpinner;
 
     @FXML
     private Label progressLabel;
@@ -108,8 +112,9 @@ public class ApplicationController {
             message = "File should have one of following extensions: " + String.join(",", GlobalConstantsUi.SUPPORTED_EXTENSIONS);
         } else {
             try {
-                final Map<AggregatedLinkInfo, Long> result = depthProcessorService.process(new FileInputStream(selectedFile), new AppCallback());
-                message = buildOutputMessage(result);
+                final AppCallback callback = new AppCallback();
+                final Map<AggregatedLinkInfo, Long> result = depthProcessorService.process(new FileInputStream(selectedFile), callback);
+                message = buildOutputMessage(result, callback);
             } catch (IOException e) {
                 message = e.getMessage();
             }
@@ -125,15 +130,22 @@ public class ApplicationController {
         if (Objects.equals("", doi)) {
             message = "You should specify DOI";
         } else {
-            final Map<AggregatedLinkInfo, Long> result = depthProcessorService.process(doi, new AppCallback());
-            message = buildOutputMessage(result);
+            final AppCallback callback = new AppCallback();
+            final Map<AggregatedLinkInfo, Long> result = depthProcessorService.process(doi, callback);
+            message = buildOutputMessage(result, callback);
         }
         outputArea.setText(message);
     }
 
-    private String buildOutputMessage(Map<AggregatedLinkInfo, Long> result) {
+    private String buildOutputMessage(Map<AggregatedLinkInfo, Long> result, AppCallback callback) {
         final StringBuilder output = new StringBuilder("Result: ").append(System.lineSeparator());
-        final List<AggregatedLinkInfo> keySet = result.keySet().stream().sorted(Comparator.comparing(result::get).reversed()).toList();
+        List<AggregatedLinkInfo> keySet = result.keySet().stream().sorted(Comparator.comparing(result::get).reversed()).toList();
+        if (keySet.size() > outputLimitSpinner.getValue()) {
+            keySet = keySet.subList(0, outputLimitSpinner.getValue());
+        }
+        if (depthProcessorService instanceof CrossrefDepthProcessorService) {
+            ((CrossrefDepthProcessorService)depthProcessorService).enrichWithTitle(keySet, callback);
+        }
         if (keySet.isEmpty()) {
             output.append("Unreadable input or nothing to extract.");
         } else {
@@ -187,6 +199,7 @@ public class ApplicationController {
         private Long minorIteration;
         private Long majorIteration;
         private BigDecimal depth;
+        private EventType type;
 
         public AppCallback() {
             minorIteration = 0L;
@@ -197,14 +210,18 @@ public class ApplicationController {
         @Override
         public void notifyMinor() {
             minorIteration = ++executed;
-            Platform.runLater(() -> progressLabel.setText(String.format("Depth %s: %s/%s", depth.toPlainString(), minorIteration, majorIteration)));
+            final String processName = type == EventType.DEPTH ? "Depth " + depth.toPlainString() : "Post process";
+            Platform.runLater(() -> progressLabel.setText(String.format("%s: %s/%s", processName, minorIteration, majorIteration)));
         }
 
         @Override
-        public void notifyMajor(Long newLayerRequestCount, BigDecimal depth) {
+        public void notifyMajor(EventType type, Long newLayerRequestCount, BigDecimal depth) {
             flushProgress();
             majorIteration = newLayerRequestCount;
-            this.depth = depth;
+            this.type = type;
+            if (type == EventType.DEPTH) {
+                this.depth = depth;
+            }
         }
     }
 

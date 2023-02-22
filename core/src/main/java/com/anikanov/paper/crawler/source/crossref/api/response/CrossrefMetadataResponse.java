@@ -20,6 +20,10 @@ public class CrossrefMetadataResponse {
         @JsonProperty("DOI")
         private String doi;
 
+        private String publisher;
+
+        private List<String> title;
+
         private List<Reference> reference;
 
         @Data

@@ -13,10 +13,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -44,7 +41,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
     @Override
     public Map<AggregatedLinkInfo, Long> process(String doi, ProgressCallback callback) {
         final List<AggregatedLinkInfo> result = new ArrayList<>();
-        callback.notifyMajor(1L, BigDecimal.ONE);
+        callback.notifyMajor(ProgressCallback.EventType.DEPTH, 1L, BigDecimal.ONE);
         final CrossrefMetadataResponse.Item response = apiService.getWork(doi, callback);
         process(result, toAggregatedLinks(response), BigDecimal.ONE, callback);
         return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
@@ -56,7 +53,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         if (depth.compareTo(properties.getMaxDepth()) <= 0) {
             List<AggregatedLinkInfo> layerData = new ArrayList<>();
             input = input.stream().distinct().collect(Collectors.toList());
-            callback.notifyMajor((long) input.size(), depth);
+            callback.notifyMajor(ProgressCallback.EventType.DEPTH, (long) input.size(), depth);
             for (AggregatedLinkInfo link : input) {
                 if (Objects.nonNull(link.getDoi())) {
                     final CrossrefMetadataResponse.Item response = apiService.getWork(link.getDoi(), callback);
@@ -65,7 +62,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
                             layerData.addAll(toAggregatedLinks(response));
                         }
                     } else {
-                        result.remove(link);
+//                        result.remove(link);
                     }
                 }
             }
@@ -110,7 +107,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
                             .append(" Journal title: ").append(ref.getJournalTitle())
                             .append(" doi: ").append(ref.getDoi());
                     return AggregatedLinkInfo.builder()
-                            .text(text.toString())
+//                            .text(text.toString())
                             .doi(ref.getDoi())
                             .build();
                 })
@@ -121,7 +118,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
     private List<AggregatedLinkInfo> enrichLinksAndFilterIrrelevant(List<AggregatedLinkInfo> links, ProgressCallback callback) throws IOException {
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         log.info("Applying DOIs to input links");
-        callback.notifyMajor((long) links.size(), BigDecimal.ONE);
+        callback.notifyMajor(ProgressCallback.EventType.DEPTH, (long) links.size(), BigDecimal.ONE);
         for (AggregatedLinkInfo info : links) {
             final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
                     .requestText(info.getText())
@@ -135,5 +132,20 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
             }
         }
         return result.stream().distinct().collect(Collectors.toList());
+    }
+
+    private void applyTitle(AggregatedLinkInfo link, CrossrefMetadataResponse.Item item) {
+        final StringBuilder text = new StringBuilder();
+        text.append("Title: ").append(Optional.ofNullable(item.getTitle()).map(titles -> String.join(" ", titles)).orElse(""))
+                .append(", Publisher: ").append(Optional.ofNullable(item.getPublisher()).orElse(""));
+        link.setText(text.toString());
+    }
+
+    public void enrichWithTitle(List<AggregatedLinkInfo> links, ProgressCallback callback) {
+        callback.notifyMajor(ProgressCallback.EventType.POST_PROCESS, (long) links.size(), null);
+        links.stream().forEach(link -> {
+            final CrossrefMetadataResponse.Item item = apiService.getWork(link.getDoi(), callback);
+            applyTitle(link, item);
+        });
     }
 }
