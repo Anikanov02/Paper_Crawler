@@ -2,6 +2,7 @@ package com.anikanov.paper.crawler.service;
 
 import com.anikanov.paper.crawler.config.AppProperties;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
+import com.anikanov.paper.crawler.domain.DepthProcessorResult;
 import com.anikanov.paper.crawler.source.PaperSource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -27,15 +28,17 @@ public class LinksDepthProcessorService implements DepthProcessor {
     private ProgressCallback callback;
 
     @Override
-    public Map<AggregatedLinkInfo, Long> process(InputStream inputStream, ProgressCallback callback) throws IOException {
+    public DepthProcessorResult process(InputStream inputStream, ProgressCallback callback) throws IOException {
         this.callback = callback;
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         process(result, inputStream, BigDecimal.ONE);
-        return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        return DepthProcessorResult.builder()
+                .result(result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting())))
+                .build();
     }
 
     @Override
-    public Map<AggregatedLinkInfo, Long> process(String doi, ProgressCallback callback) {
+    public DepthProcessorResult process(String doi, ProgressCallback callback) {
         return null;
     }
 

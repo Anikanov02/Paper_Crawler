@@ -3,6 +3,7 @@ package com.anikanov.paper.crawler.service;
 import com.anikanov.paper.crawler.config.AppProperties;
 import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
+import com.anikanov.paper.crawler.domain.DepthProcessorResult;
 import com.anikanov.paper.crawler.source.scholars.api.impl.ScholarsApiService;
 import com.anikanov.paper.crawler.source.scholars.api.response.ScholarsMetadataResponse;
 import com.anikanov.paper.crawler.source.scholars.api.response.ScholarsOrganicSearchResponse;
@@ -27,17 +28,18 @@ public class ScholarsDepthProcessorService implements DepthProcessor {
     private ProgressCallback callback;
 
     @Override
-    public Map<AggregatedLinkInfo, Long> process(InputStream inputStream, ProgressCallback callback) throws IOException {
+    public DepthProcessorResult process(InputStream inputStream, ProgressCallback callback) throws IOException {
         this.callback = callback;
         List<AggregatedLinkInfo> inputReferences = extractorService.extract(inputStream);
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         process(result, inputReferences, BigDecimal.ONE);
-        return result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        return DepthProcessorResult.builder()
+                .result(result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting())))
+                .build();
     }
 
     @Override
-    public Map<AggregatedLinkInfo, Long> process(String doi, ProgressCallback callback) {
-
+    public DepthProcessorResult process(String doi, ProgressCallback callback) {
         return null;
     }
 

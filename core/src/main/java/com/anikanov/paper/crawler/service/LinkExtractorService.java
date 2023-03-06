@@ -21,24 +21,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LinkExtractorService {
     private static final int MAX_LINK_LENGTH = 1000;
+    private final PdfFullTextExtractor fullTextExtractor;
     public List<AggregatedLinkInfo> extract(InputStream inputStream) throws IOException {
         List<AggregatedLinkInfo> result = new ArrayList<>();
-        final PdfReader reader = new PdfReader(inputStream);
-
-        final TextExtractionStrategy strategy = new SimpleTextExtractionStrategy();
-        final StringBuilder fullText = new StringBuilder();
-        for (int i = 1; i <= reader.getNumberOfPages(); i++) {
-            fullText.append(PdfTextExtractor.getTextFromPage(reader, i, strategy));
-        }
+        final String fullText = fullTextExtractor.getText(inputStream);
 
         for (String regex : GlobalConstants.linkMatchingRegexes) {
-            final List<AggregatedLinkInfo> regexSpecificResult = new ArrayList<>(extractLinksFromPageIfExist(fullText.toString(), regex));
+            final List<AggregatedLinkInfo> regexSpecificResult = new ArrayList<>(extractLinksFromPageIfExist(fullText, regex));
             if (regexSpecificResult.size() > result.size()) {
                 result = regexSpecificResult;
             }
         }
-
-        reader.close();
         return result;
     }
 

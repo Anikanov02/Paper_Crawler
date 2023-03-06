@@ -1,9 +1,12 @@
 package com.anikanov.paper.crawler.source.crossref.api.response;
 
+import com.anikanov.paper.crawler.domain.LocalDateTimeDeserialized;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -22,9 +25,32 @@ public class CrossrefMetadataResponse {
 
         private String publisher;
 
+        private String issue;
+
+        private List<Author> author;
+
+        private String volume;
+
+        private Created created;
+
+        @JsonProperty("short-container-title")
+        private List<String> journalTitles;
+
         private List<String> title;
 
         private List<Reference> reference;
+
+        @Data
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public static class Author {
+            private String given;
+            private String family;
+
+            @Override
+            public String toString() {
+                return given + family;
+            }
+        }
 
         @Data
         @JsonIgnoreProperties(ignoreUnknown = true)
@@ -61,6 +87,19 @@ public class CrossrefMetadataResponse {
             private String journalTitle;
             @JsonProperty("issn-type")
             private String issnType;
+        }
+
+        @Data
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public static class Created {
+            @JsonProperty("date-parts")
+            private List<List<String>> dateParts;
+
+            private long timestamp;
+
+            @JsonProperty("date-time")
+            @JsonDeserialize(using = LocalDateTimeDeserialized.class)
+            private LocalDateTime dateTime;
         }
     }
 }

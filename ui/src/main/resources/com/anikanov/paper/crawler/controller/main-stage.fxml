@@ -11,16 +11,18 @@
 <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="635.0" prefWidth="938.0" scaleShape="false" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.anikanov.paper.crawler.controller.ApplicationController">
    <children>
       <Button fx:id="selectFileButton" layoutX="14.0" layoutY="56.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="95.0" text="Select File" />
-      <Label fx:id="infoLabel" layoutX="14.0" layoutY="39.0" prefHeight="17.0" prefWidth="110.0" text="File not selected" />
-      <Button fx:id="crawlButton" layoutX="14.0" layoutY="92.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="95.0" text="Crawl" />
-      <TextArea fx:id="outputArea" editable="false" layoutX="134.0" layoutY="11.0" prefHeight="613.0" prefWidth="791.0" promptText="Output:" />
-      <Spinner fx:id="maxDepthSpinner" layoutX="14.0" layoutY="187.0" max="10" min="1" prefHeight="25.0" prefWidth="81.0" />
-      <Label fx:id="progressLabel" layoutX="14.0" layoutY="229.0" prefHeight="17.0" prefWidth="110.0" />
-      <Label layoutX="14.0" layoutY="212.0" prefHeight="17.0" prefWidth="110.0" text="Executed requests:" />
-      <Label layoutX="14.0" layoutY="170.0" prefHeight="17.0" prefWidth="81.0" text="Search depth:" />
-      <ChoiceBox fx:id="approachChooser" layoutX="14.0" layoutY="14.0" prefHeight="25.0" prefWidth="110.0" />
-      <TextField fx:id="doiInput" layoutX="14.0" layoutY="56.0" prefHeight="36.0" prefWidth="110.0" promptText="Insert DOI" />
-      <Spinner fx:id="outputLimitSpinner" layoutX="14.0" layoutY="145.0" max="10000" min="1" prefHeight="25.0" prefWidth="81.0" />
-      <Label layoutX="14.0" layoutY="128.0" prefHeight="17.0" prefWidth="81.0" text="Output limit" />
+      <Label fx:id="infoLabel" layoutX="14.0" layoutY="39.0" prefHeight="17.0" prefWidth="144.0" text="File not selected" />
+      <Button fx:id="crawlButton" layoutX="14.0" layoutY="164.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="144.0" text="Crawl" />
+      <TextArea fx:id="outputArea" editable="false" layoutX="164.0" layoutY="11.0" prefHeight="613.0" prefWidth="761.0" promptText="Output:" />
+      <Spinner fx:id="maxDepthSpinner" layoutX="14.0" layoutY="259.0" max="10" min="1" prefHeight="25.0" prefWidth="144.0" />
+      <Label fx:id="progressLabel" layoutX="14.0" layoutY="301.0" prefHeight="17.0" prefWidth="144.0" />
+      <Label layoutX="14.0" layoutY="284.0" prefHeight="17.0" prefWidth="144.0" text="Executed requests:" />
+      <Label layoutX="14.0" layoutY="242.0" prefHeight="17.0" prefWidth="144.0" text="Search depth:" />
+      <ChoiceBox fx:id="approachChooser" layoutX="14.0" layoutY="14.0" prefHeight="25.0" prefWidth="144.0" />
+      <TextField fx:id="doiInput" layoutX="14.0" layoutY="56.0" prefHeight="36.0" prefWidth="144.0" promptText="Insert DOI:" />
+      <Spinner fx:id="outputLimitSpinner" layoutX="14.0" layoutY="217.0" max="10000" min="1" prefHeight="25.0" prefWidth="144.0" />
+      <Label layoutX="14.0" layoutY="200.0" prefHeight="17.0" prefWidth="144.0" text="Output limit" />
+      <TextField fx:id="keyWordField" layoutX="14.0" layoutY="92.0" prefHeight="36.0" prefWidth="144.0" promptText="Insert key word:" />
+      <TextField fx:id="pdfSource" layoutX="14.0" layoutY="128.0" prefHeight="36.0" prefWidth="144.0" promptText="Pdf source:" />
    </children>
 </AnchorPane>
