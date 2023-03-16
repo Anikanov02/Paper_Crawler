@@ -14,6 +14,7 @@ public abstract class ProgressCallback {
         DEPTH("Depth"),
         APPLYING_EXTRA_DATA("Applying extra data"),
         LINKS_PROCESSING("Links processing"),
+        FINISHED("Finished"),
         OTHER("Other");
 
         @Getter

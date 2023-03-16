@@ -18,7 +18,6 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -45,7 +44,7 @@ public class PdfDownloader {
 //                    callback.notifyMinor();
                 } else {
                     final String html = fetchFullPageHtml(DOI_ORG_BASE_URL + link.getDoi());
-                    if (keyWordsFilter.accepts(html)) {
+                    if (keyWordsFilter.accepts(link.getTitle() + html)) {
                         //FILTERED
                         downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FILTERED_PDFS_DIR);
                         downloaded++;
@@ -58,7 +57,7 @@ public class PdfDownloader {
                         downloaded++;
 //                        callback.notifyMinor();
                         final String fulltext = fullTextExtractor.getText(new FileInputStream(downloadedFile));
-                        if (keyWordsFilter.accepts(fulltext)) {
+                        if (keyWordsFilter.accepts(link.getTitle() + html + fulltext)) {
                             FileCopyUtils.copy(downloadedFile, new File(GlobalConstants.FILTERED_PDFS_DIR, normalizeName(link.getTitle()) + ".pdf"));
                             serializer.saveData(List.of(link.toBibtex()), filteredWriter);
                             downloadedFile.delete();//delete from general directory
@@ -71,6 +70,7 @@ public class PdfDownloader {
                     break;
                 }
             }
+            callback.notifyMajor(ProgressCallback.EventType.FINISHED, null, null);
         }
     }
 
@@ -104,7 +104,9 @@ public class PdfDownloader {
                 .replace("&", "")
                 .replace("'", "")
                 .replace("|", "")
-                .replace("=", "");
+                .replace("=", "")
+                .replace("/", "")
+                .replace("\\", "");
     }
 
     private String fetchFullPageHtml(String initialUrl) throws IOException {

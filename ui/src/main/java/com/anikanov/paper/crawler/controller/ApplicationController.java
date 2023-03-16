@@ -312,6 +312,10 @@ public class ApplicationController {
         @Override
         public void notifyMajor(EventType type, Long newLayerRequestCount, BigDecimal depth) {
             flushProgress();
+            if (type == EventType.FINISHED) {
+                Platform.runLater(() -> progressLabel.setText(type.getName()));
+                return;
+            }
             majorIteration = newLayerRequestCount;
             this.type = type;
             this.depth = depth;
