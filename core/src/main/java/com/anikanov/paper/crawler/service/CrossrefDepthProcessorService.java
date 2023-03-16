@@ -155,7 +155,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         final StringBuilder text = new StringBuilder();
         final String title = Optional.ofNullable(item.getTitle()).map(titles -> String.join(" ", titles)).orElse("");
         final String publisher = Optional.ofNullable(item.getPublisher()).orElse("");
-        final List<String> authors = Optional.ofNullable(item.getAuthor()).map(authrs -> authrs.stream().map(CrossrefMetadataResponse.Item.Author::toString).collect(Collectors.toList())).orElse(Collections.emptyList());
+        final List<String> authors = Optional.ofNullable(item.getAuthor()).map(authrs -> authrs.stream().map(CrossrefMetadataResponse.Item.Author::getFamily).collect(Collectors.toList())).orElse(Collections.emptyList());
         final Integer year = Optional.ofNullable(item.getCreated()).flatMap(created -> Optional.ofNullable(created.getDateTime()).map(LocalDateTime::getYear)).orElse(null);
         final String issue = Optional.ofNullable(item.getIssue()).orElse("");
         final Integer month = Optional.ofNullable(item.getCreated()).flatMap(created -> Optional.ofNullable(created.getDateTime()).map(dt-> dt.getMonth().getValue())).orElse(null);

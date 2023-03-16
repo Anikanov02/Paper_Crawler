@@ -5,6 +5,7 @@ import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.config.GlobalConstantsUi;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.domain.DepthProcessorResult;
+import com.anikanov.paper.crawler.domain.KeyWordsFilter;
 import com.anikanov.paper.crawler.service.*;
 import com.anikanov.paper.crawler.source.GenericPdfSource;
 import com.anikanov.paper.crawler.source.PdfSource;
@@ -17,6 +18,7 @@ import javafx.scene.control.*;
 import javafx.stage.FileChooser;
 import lombok.RequiredArgsConstructor;
 import net.rgielen.fxweaver.core.FxmlView;
+import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +36,18 @@ import java.util.stream.Collectors;
 public class ApplicationController {
     @FXML
     private ChoiceBox<ApproachOption> approachChooser;
+
+    @FXML
+    private ChoiceBox<PdfDownloader.FiltrationOption> filtrationModeChooser;
+
+    @FXML
+    private Label dictionaryInfoLabel;
+
+    @FXML
+    private Button failedPdfsDeletionButton;
+
+    @FXML
+    private Spinner<Integer> pdfsLimitSpinner;
 
     @FXML
     private Button crawlButton;
@@ -63,6 +77,9 @@ public class ApplicationController {
     private Button selectFileButton;
 
     @FXML
+    private Button selectDictionaryFileButton;
+
+    @FXML
     private Spinner<Integer> maxDepthSpinner;
 
     private final AppProperties properties;
@@ -80,16 +97,26 @@ public class ApplicationController {
 
     private final FileChooser fileChooser = new FileChooser();
 
+    private final FileChooser dictionaryChooser = new FileChooser();
+
     private File selectedFile = null;
+
+    private File dictionary = null;
 
     private Long executed = 0L;
 
     @FXML
     private void initialize() {
-        final ObservableList<ApproachOption> options = FXCollections.observableList(Arrays.stream(ApproachOption.values()).collect(Collectors.toList()));
-        approachChooser.setItems(options);
+        final ObservableList<ApproachOption> approachOptions = FXCollections.observableList(Arrays.stream(ApproachOption.values()).collect(Collectors.toList()));
+        final ObservableList<PdfDownloader.FiltrationOption> filtrationOptions = FXCollections.observableList(Arrays.stream(PdfDownloader.FiltrationOption.values()).collect(Collectors.toList()));
+        approachChooser.setItems(approachOptions);
         approachChooser.setValue(ApproachOption.PDF);
         visualizeOption();
+
+        filtrationModeChooser.setItems(filtrationOptions);
+        filtrationModeChooser.setValue(PdfDownloader.FiltrationOption.GENERAL);
+
+        failedPdfsDeletionButton.setDisable(true);
 
         approachChooser.setOnAction(actionEvent -> {
             visualizeOption();
@@ -102,6 +129,20 @@ public class ApplicationController {
             }
         });
 
+        selectDictionaryFileButton.setOnAction(actionEvent -> {
+            dictionary = dictionaryChooser.showOpenDialog(dictionaryInfoLabel.getScene().getWindow());
+            if (dictionary != null && !getExtension(dictionary).equalsIgnoreCase("txt")) {
+                outputArea.setText("dictionary should have txt extension");
+            } else if (dictionary != null) {
+                dictionaryInfoLabel.setText(dictionary.getName());
+                try {
+                    GlobalConstants.applyDictionary(dictionary);
+                } catch (Exception e) {
+                    outputArea.setText(e.getMessage());
+                }
+            }
+        });
+
         crawlButton.setOnAction(actionEvent -> {
             executorService.submit(() -> {
                 switch (approachChooser.getValue()) {
@@ -109,6 +150,14 @@ public class ApplicationController {
                     case DOI -> executeDoiInputCrawling();
                 }
             });
+        });
+
+        failedPdfsDeletionButton.setOnAction(actionEvent -> {
+            try {
+                FileUtils.cleanDirectory(GlobalConstants.DOWNLOADED_PDFS_DIR);
+            } catch (IOException e) {
+                outputArea.setText(e.getMessage());
+            }
         });
     }
 
@@ -124,11 +173,14 @@ public class ApplicationController {
             message = "File should not be a directory";
         } else if (!acceptableExtension(selectedFile)) {
             message = "File should have one of following extensions: " + String.join(",", GlobalConstantsUi.SUPPORTED_EXTENSIONS);
+        } else if (dictionary != null && !getExtension(dictionary).equalsIgnoreCase("txt")) {
+            message = "dictionary should have txt extension";
         } else {
             try {
                 final AppCallback callback = new AppCallback();
                 final DepthProcessorResult result = depthProcessorService.process(new FileInputStream(selectedFile), callback);
                 message = manageOutput(result, callback);
+                failedPdfsDeletionButton.setDisable(false);
             } catch (IOException e) {
                 message = e.getMessage();
             }
@@ -143,10 +195,13 @@ public class ApplicationController {
         final String doi = doiInput.textProperty().getValue().trim();
         if (Objects.equals("", doi)) {
             message = "You should specify DOI";
+        } else if (dictionary != null && !getExtension(dictionary).equalsIgnoreCase("txt")) {
+            message = "dictionary should have txt extension";
         } else {
             final AppCallback callback = new AppCallback();
             final DepthProcessorResult result = depthProcessorService.process(doi, callback);
             message = manageOutput(result, callback);
+            failedPdfsDeletionButton.setDisable(false);
         }
         outputArea.setText(message);
     }
@@ -186,10 +241,12 @@ public class ApplicationController {
             }
 
             try {
+                GlobalConstants.refreshOutputDir();
                 serializer.saveData(keySet.stream().map(AggregatedLinkInfo::toBibtex).collect(Collectors.toList()));
                 final String pdfSrc = pdfSource.getText().trim();
                 final PdfSource source = pdfSrc.isEmpty() ? sciHubPdfSource : new GenericPdfSource(pdfSrc);
-                pdfDownloader.download(keySet, keyWordField.getText(), source, callback);
+                final KeyWordsFilter keyWordsFilter = new KeyWordsFilter(keyWordField.getText());
+                pdfDownloader.download(keySet, pdfsLimitSpinner.getValue(), keyWordsFilter, filtrationModeChooser.getValue(), source, callback);
             } catch (Exception e) {
                 output.append(e.getMessage());
             }
@@ -223,9 +280,13 @@ public class ApplicationController {
         return Optional.of(selectedFile).filter(f -> f.getName().contains(".")).isPresent();
     }
 
-    private boolean acceptableExtension(File file) {
-        final String ext = Optional.of(selectedFile).filter(f -> f.getName().contains("."))
+    private String getExtension(File file) {
+        return Optional.of(selectedFile).filter(f -> f.getName().contains("."))
                 .map(f -> f.getName().substring(f.getName().lastIndexOf(".") + 1)).orElse("");
+    }
+
+    private boolean acceptableExtension(File file) {
+        final String ext = getExtension(file);
         return GlobalConstantsUi.SUPPORTED_EXTENSIONS.stream().anyMatch(allowed -> allowed.equalsIgnoreCase(ext));
     }
 
@@ -244,7 +305,7 @@ public class ApplicationController {
         @Override
         public void notifyMinor() {
             minorIteration = ++executed;
-            final String processName = type.getName();
+            final String processName = type.getName() + Optional.ofNullable(depth).map(d -> " " + d.toPlainString()).orElse("");
             Platform.runLater(() -> progressLabel.setText(String.format("%s: %s/%s", processName, minorIteration, majorIteration)));
         }
 
@@ -253,9 +314,7 @@ public class ApplicationController {
             flushProgress();
             majorIteration = newLayerRequestCount;
             this.type = type;
-            if (type == EventType.DEPTH) {
-                this.depth = depth;
-            }
+            this.depth = depth;
         }
     }
 

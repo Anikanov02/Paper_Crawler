@@ -12,8 +12,8 @@ public abstract class ProgressCallback {
 
     public enum EventType {
         DEPTH("Depth"),
-        APPLYING_EXTRA_DATA("Applying xtra data"),
-        PDF_DOWNLOADING("Pdf downloading"),
+        APPLYING_EXTRA_DATA("Applying extra data"),
+        LINKS_PROCESSING("Links processing"),
         OTHER("Other");
 
         @Getter
