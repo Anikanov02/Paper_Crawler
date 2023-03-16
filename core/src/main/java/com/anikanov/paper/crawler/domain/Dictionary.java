@@ -7,16 +7,19 @@ import java.util.stream.Collectors;
 public class Dictionary {
     private List<Set<String>> aliases;
 
-    private static final String DICTIONARY_SEPARATOR = ",";
+    private static final String DICTIONARY_SEPARATOR = "==";
 
     public Dictionary() {
-        this.aliases = Collections.emptyList();
+        this.aliases = new ArrayList<>();
     }
 
     public void applyNewDictionary(File file) throws Exception {
         final Scanner scanner = new Scanner(file);
-        while (scanner.hasNext()) {
+        while (scanner.hasNextLine()) {
             final String line = scanner.nextLine();
+            if (line.isBlank()) {
+                continue;
+            }
             final Set<String> commons = Arrays.stream(line.split(DICTIONARY_SEPARATOR)).map(String::trim).map(String::toLowerCase).collect(Collectors.toSet());
             final Optional<Set<String>> existing = aliases.stream().filter(list -> list.stream().anyMatch(commons::contains)).findAny();
             if (existing.isPresent()) {

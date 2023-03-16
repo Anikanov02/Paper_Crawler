@@ -281,7 +281,7 @@ public class ApplicationController {
     }
 
     private String getExtension(File file) {
-        return Optional.of(selectedFile).filter(f -> f.getName().contains("."))
+        return Optional.of(file).filter(f -> f.getName().contains("."))
                 .map(f -> f.getName().substring(f.getName().lastIndexOf(".") + 1)).orElse("");
     }
 

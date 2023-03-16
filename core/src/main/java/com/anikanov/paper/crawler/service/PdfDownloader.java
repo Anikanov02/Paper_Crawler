@@ -31,7 +31,7 @@ public class PdfDownloader {
     private static final List<String> illegalCharacters = List.of();
 
     public void download(List<AggregatedLinkInfo> links, Integer limit, KeyWordsFilter keyWordsFilter, FiltrationOption filtrationOption, PdfSource source, ProgressCallback callback) throws IOException, DocumentException {
-        callback.notifyMajor(ProgressCallback.EventType.LINKS_PROCESSING, (long) Math.min(limit, links.size()), null);
+        callback.notifyMajor(ProgressCallback.EventType.LINKS_PROCESSING, (long) links.size(), null);
         try (final FileWriter filteredWriter = new FileWriter(GlobalConstants.BIBTEX_FILTERED, true);
              final FileWriter filtrationFailedWriter = new FileWriter(GlobalConstants.BIBTEX_FILTRATION_FAILED, true)) {
             int downloaded = 0;
