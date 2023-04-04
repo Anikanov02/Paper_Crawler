@@ -9,6 +9,8 @@ public class Dictionary {
 
     private static final String DICTIONARY_SEPARATOR = "==";
 
+    private static final List<String> spaceReplacements = List.of("-", "_", " ");
+
     public Dictionary() {
         this.aliases = new ArrayList<>();
     }
@@ -37,5 +39,10 @@ public class Dictionary {
 
     public Set<String> getAliases(String word) {
         return aliases.stream().filter(list -> list.contains(word.trim().toLowerCase())).findFirst().orElse(Set.of(word));
+    }
+
+    public Set<String> getRegexedAliases(String word) {
+        final String spaceReplacement = String.format("[%s]", String.join("", spaceReplacements));
+        return getAliases(word).stream().map(alias -> alias.replaceAll("\\s+", spaceReplacement)).collect(Collectors.toSet());
     }
 }

@@ -19,14 +19,20 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class LinkExtractorService {
+public class LinkExtractorService implements Stoppable {
     private static final int MAX_LINK_LENGTH = 1000;
     private final PdfFullTextExtractor fullTextExtractor;
+    private boolean running = false;
+
     public List<AggregatedLinkInfo> extract(InputStream inputStream) throws IOException {
+        running = true;
         List<AggregatedLinkInfo> result = new ArrayList<>();
         final String fullText = fullTextExtractor.getText(inputStream);
 
         for (String regex : GlobalConstants.linkMatchingRegexes) {
+            if (!running) {
+                break;
+            }
             final List<AggregatedLinkInfo> regexSpecificResult = new ArrayList<>(extractLinksFromPageIfExist(fullText, regex));
             if (regexSpecificResult.size() > result.size()) {
                 result = regexSpecificResult;
@@ -54,5 +60,10 @@ public class LinkExtractorService {
         return textLinks.stream().map(txtLink -> AggregatedLinkInfo.builder()
                 .text(txtLink)
                 .build()).collect(Collectors.toList());
+    }
+
+    @Override
+    public void stop() {
+        running = false;
     }
 }

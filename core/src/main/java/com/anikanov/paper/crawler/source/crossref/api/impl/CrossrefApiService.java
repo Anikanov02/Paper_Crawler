@@ -1,5 +1,6 @@
 package com.anikanov.paper.crawler.source.crossref.api.impl;
 
+import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.service.ProgressCallback;
 import com.anikanov.paper.crawler.source.crossref.api.interfaces.CrossrefApi;
 import com.anikanov.paper.crawler.source.crossref.api.interfaces.CrossrefApiRetrofit;
@@ -8,17 +9,25 @@ import com.anikanov.paper.crawler.source.crossref.api.response.CrossrefMetadataR
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Objects;
 
 @Slf4j
 public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetrofit> implements CrossrefApi {
-    public CrossrefApiService(String baseUrl, String apiKey, String secret) {
+    private final int maxRepeatingRequests;
+
+    public CrossrefApiService(String baseUrl, String apiKey, String secret, Integer maxRepeatingRequests) {
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
         this.secret = secret;
+        this.maxRepeatingRequests = Objects.isNull(maxRepeatingRequests) ? GlobalConstants.DEFAULT_REPEATING_REQUESTS_LIMIT : maxRepeatingRequests;
     }
 
     @Override
     public CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request, ProgressCallback callback) {
+        return getWorks(request, callback, 0);
+    }
+
+    private CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request, ProgressCallback callback, int iteration) {
         final CrossrefMetadataResponse response;
         try {
             response = executeSync(getAPIImpl().getWorks(request.getRequestText(), request.getRows(), request.getSelect()));
@@ -27,9 +36,9 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
         } catch (IOException e) {
             String message = e.getMessage();
             log.error("Error occurred (getWorks): message:{}", message);
-            if (message.contains("timeout") || message.contains("Read timed out")) {
+            if ((message.contains("timeout") || message.contains("Read timed out")) && iteration <= maxRepeatingRequests) {
                 log.info("timeout encountered, requesting again...");
-                return getWorks(request, callback);
+                return getWorks(request, callback, ++iteration);
             } else {
                 log.info("invalid request, skipping");
                 return null;
@@ -40,6 +49,10 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
 
     @Override
     public CrossrefMetadataResponse.Item getWork(String doi, ProgressCallback callback) {
+        return getWork(doi, callback, 0);
+    }
+
+    private CrossrefMetadataResponse.Item getWork(String doi, ProgressCallback callback, int iteration) {
         final CrossrefMetadataResponse.Item response;
         try {
             response = executeSync(getAPIImpl().getWork(doi));
@@ -48,9 +61,9 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
         } catch (IOException e) {
             String message = e.getMessage();
             log.error("Error occurred (getWorks): message:{}", message);
-            if (message.contains("timeout")) {
+            if (message.contains("timeout") && iteration <= maxRepeatingRequests) {
                 log.info("timeout encountered, requesting again...");
-                return getWork(doi, callback);
+                return getWork(doi, callback, ++iteration);
             } else {
                 log.info("invalid request, skipping");
                 return null;

@@ -22,6 +22,7 @@ public class AppProperties {
         private String baseUrl;
         private String apiKey;
         private String secret;
+        private Integer maxRepeatingRequests;
     }
 
     @Data

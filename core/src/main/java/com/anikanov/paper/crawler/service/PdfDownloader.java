@@ -21,7 +21,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class PdfDownloader {
+public class PdfDownloader implements Stoppable {
     private static final String DOI_ORG_BASE_URL = "https://www.doi.org/";
     private final PdfFullTextExtractor fullTextExtractor;
 
@@ -29,33 +29,48 @@ public class PdfDownloader {
 
     private static final List<String> illegalCharacters = List.of();
 
+    private boolean running = false;
+
     public void download(List<AggregatedLinkInfo> links, Integer limit, KeyWordsFilter keyWordsFilter, FiltrationOption filtrationOption, PdfSource source, ProgressCallback callback) throws IOException, DocumentException {
+        running = true;
         callback.notifyMajor(ProgressCallback.EventType.LINKS_PROCESSING, (long) links.size(), null);
         try (final FileWriter filteredWriter = new FileWriter(GlobalConstants.BIBTEX_FILTERED, true);
-             final FileWriter filtrationFailedWriter = new FileWriter(GlobalConstants.BIBTEX_FILTRATION_FAILED, true)) {
+            final FileWriter filtrationFailedWriter = new FileWriter(GlobalConstants.BIBTEX_FILTRATION_FAILED, true)) {
             int downloaded = 0;
             for (AggregatedLinkInfo link : links) {
+                if (!running) {
+                    break;
+                }
                 File downloadedFile;
                 callback.notifyMinor();
                 if (keyWordsFilter.accepts(link.getTitle())) {
-                    downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FILTERED_PDFS_DIR);
+                    try {
+                        downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FILTERED_PDFS_DIR);
+                    } catch (IOException e) {
+                        continue;
+                    }
                     downloaded++;
                     serializer.saveData(List.of(link.toBibtex()), filteredWriter);
-//                    callback.notifyMinor();
                 } else {
                     final String html = fetchFullPageHtml(DOI_ORG_BASE_URL + link.getDoi());
                     if (keyWordsFilter.accepts(link.getTitle() + html)) {
                         //FILTERED
-                        downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FILTERED_PDFS_DIR);
+                        try {
+                            downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FILTERED_PDFS_DIR);
+                        } catch (IOException e) {
+                            continue;
+                        }
                         downloaded++;
                         serializer.saveData(List.of(link.toBibtex()), filteredWriter);
-//                        callback.notifyMinor();
                         continue;
                     }
                     if (filtrationOption == FiltrationOption.ADVANCED) {
-                        downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.DOWNLOADED_PDFS_DIR);
+                        try {
+                            downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FAILED_PDFS_DIR);
+                        } catch (IOException e) {
+                            continue;
+                        }
                         downloaded++;
-//                        callback.notifyMinor();
                         final String fulltext = fullTextExtractor.getText(new FileInputStream(downloadedFile));
                         if (keyWordsFilter.accepts(link.getTitle() + html + fulltext)) {
                             FileCopyUtils.copy(downloadedFile, new File(GlobalConstants.FILTERED_PDFS_DIR, normalizeName(link.getTitle()) + ".pdf"));
@@ -71,6 +86,7 @@ public class PdfDownloader {
                 }
             }
             callback.notifyMajor(ProgressCallback.EventType.FINISHED, null, null);
+            stop();
         }
     }
 
@@ -94,7 +110,6 @@ public class PdfDownloader {
 
     private String normalizeName(String initial) {
         String normalized = initial;
-
         return initial.replace("<", "")
                 .replace(">", "")
                 .replace(".", "")
@@ -106,7 +121,9 @@ public class PdfDownloader {
                 .replace("|", "")
                 .replace("=", "")
                 .replace("/", "")
-                .replace("\\", "");
+                .replace("\\", "")
+                .replace("\n", "")
+                .replace("\r", "");
     }
 
     private String fetchFullPageHtml(String initialUrl) throws IOException {
@@ -126,9 +143,14 @@ public class PdfDownloader {
         return url;
     }
 
+    @Override
+    public void stop() {
+        running = false;
+    }
+
     public enum FiltrationOption {
-        GENERAL("general filtration"),
-        ADVANCED("advanced filtration");
+        GENERAL("fast(title + abstract)"),
+        ADVANCED("slow(title + abstract + text)");
 
         private String code;
 

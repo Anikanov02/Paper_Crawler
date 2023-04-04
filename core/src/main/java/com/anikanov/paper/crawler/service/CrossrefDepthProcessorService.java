@@ -30,32 +30,43 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
     private final CrossrefApiService apiService;
     private final LinkExtractorService extractorService;
     private final ExecutorService executorService;
+    private boolean running = false;
 
     @Override
     public DepthProcessorResult process(InputStream inputStream, ProgressCallback callback) throws IOException {
+        running = true;
         List<AggregatedLinkInfo> inputReferences = extractorService.extract(inputStream);
         inputReferences = enrichLinksAndFilterIrrelevant(inputReferences, callback);
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         final List<AggregatedLinkInfo> encounteredInstances = new ArrayList<>(result);
         final List<AggregatedLinkInfo> brokenLinks = new ArrayList<>();
         process(result, inputReferences, encounteredInstances, brokenLinks, BigDecimal.ONE, callback);
+        final Map<AggregatedLinkInfo, Long> map = result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        enrichWithTitle(map.keySet(), callback);
+        stop();
         return DepthProcessorResult.builder()
                 .brokenLinks(brokenLinks)
-                .result(result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting())))
+                .result(map)
                 .build();
     }
 
     @Override
     public DepthProcessorResult process(String doi, ProgressCallback callback) {
+        running = true;
         callback.notifyMajor(ProgressCallback.EventType.DEPTH, 1L, BigDecimal.ONE);
         final CrossrefMetadataResponse.Item response = apiService.getWork(doi, callback);
         final List<AggregatedLinkInfo> result = new ArrayList<>();
         final List<AggregatedLinkInfo> encounteredInstances = new ArrayList<>();
         final List<AggregatedLinkInfo> brokenLinks = new ArrayList<>();
-        process(result, toAggregatedLinks(response), encounteredInstances, brokenLinks, BigDecimal.ONE, callback);
+        if (Objects.nonNull(response)) {
+            process(result, toAggregatedLinks(response), encounteredInstances, brokenLinks, BigDecimal.ONE, callback);
+        }
+        final Map<AggregatedLinkInfo, Long> map = result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        enrichWithTitle(map.keySet(), callback);
+        stop();
         return DepthProcessorResult.builder()
                 .brokenLinks(brokenLinks)
-                .result(result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting())))
+                .result(map)
                 .build();
     }
 
@@ -72,6 +83,9 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
             encounteredInstances.addAll(input);
             callback.notifyMajor(ProgressCallback.EventType.DEPTH, (long) input.size(), depth);
             for (AggregatedLinkInfo link : input) {
+                if (!running) {
+                    return;
+                }
                 if (Objects.nonNull(link.getDoi())) {
                     final CrossrefMetadataResponse.Item response = apiService.getWork(link.getDoi(), callback);
                     if (Objects.nonNull(response)) {
@@ -137,6 +151,9 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         log.info("Applying DOIs to input links");
         callback.notifyMajor(ProgressCallback.EventType.DEPTH, (long) links.size(), BigDecimal.ONE);
         for (AggregatedLinkInfo info : links) {
+            if (!running) {
+                break;
+            }
             final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
                     .requestText(info.getText())
                     .rows(1)
@@ -176,11 +193,22 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         link.setJournalTitle(journalTitle);
     }
 
-    public void enrichWithTitle(List<AggregatedLinkInfo> links, ProgressCallback callback) {
+    public void enrichWithTitle(Collection<AggregatedLinkInfo> links, ProgressCallback callback) {
         callback.notifyMajor(ProgressCallback.EventType.APPLYING_EXTRA_DATA, (long) links.size(), null);
         links.stream().forEach(link -> {
+            if (!running) {
+                return;
+            }
             final CrossrefMetadataResponse.Item item = apiService.getWork(link.getDoi(), callback);
-            applyExtraData(link, item);
+            if (Objects.nonNull(item)) {
+                applyExtraData(link, item);
+            }
         });
+    }
+
+    @Override
+    public void stop() {
+        running = false;
+        extractorService.stop();
     }
 }

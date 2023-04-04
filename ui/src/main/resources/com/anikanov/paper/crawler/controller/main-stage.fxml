@@ -14,19 +14,19 @@
       <Label fx:id="infoLabel" layoutX="14.0" layoutY="64.0" prefHeight="17.0" prefWidth="144.0" text="File not selected" />
       <Button fx:id="crawlButton" layoutX="14.0" layoutY="190.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="144.0" text="Crawl" />
       <TextArea fx:id="outputArea" editable="false" layoutX="170.0" layoutY="11.0" prefHeight="613.0" prefWidth="755.0" promptText="Output:" />
-      <Spinner fx:id="maxDepthSpinner" layoutX="14.0" layoutY="326.0" max="10" min="1" prefHeight="25.0" prefWidth="144.0" />
+      <Spinner fx:id="maxDepthSpinner" editable="true" layoutX="14.0" layoutY="326.0" max="10" min="1" prefHeight="25.0" prefWidth="144.0" />
       <Label fx:id="progressLabel" layoutX="14.0" layoutY="368.0" prefHeight="17.0" prefWidth="144.0" />
       <Label layoutX="14.0" layoutY="351.0" prefHeight="17.0" prefWidth="144.0" text="Executed requests:" />
       <Label layoutX="14.0" layoutY="309.0" prefHeight="17.0" prefWidth="144.0" text="Search depth:" />
       <ChoiceBox fx:id="approachChooser" layoutX="14.0" layoutY="14.0" prefHeight="25.0" prefWidth="144.0" />
       <TextField fx:id="doiInput" layoutX="14.0" layoutY="82.0" prefHeight="36.0" prefWidth="144.0" promptText="Insert DOI:" />
-      <Spinner fx:id="outputLimitSpinner" layoutX="14.0" layoutY="284.0" max="10000" min="1" prefHeight="25.0" prefWidth="144.0" />
+      <Spinner fx:id="outputLimitSpinner" editable="true" layoutX="14.0" layoutY="284.0" max="10000" min="1" prefHeight="25.0" prefWidth="144.0" />
       <Label layoutX="14.0" layoutY="267.0" prefHeight="17.0" prefWidth="144.0" text="Output limit" />
       <TextField fx:id="keyWordField" layoutX="14.0" layoutY="118.0" prefHeight="36.0" prefWidth="144.0" promptText="Insert key word:" />
       <TextField fx:id="pdfSource" layoutX="14.0" layoutY="154.0" prefHeight="36.0" prefWidth="144.0" promptText="https://your.pdf.source/" />
       <ChoiceBox fx:id="filtrationModeChooser" layoutX="14.0" layoutY="39.0" prefHeight="25.0" prefWidth="144.0" />
       <Button fx:id="failedPdfsDeletionButton" layoutX="14.0" layoutY="585.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="144.0" text="Delete failed pdfs" />
-      <Spinner fx:id="pdfsLimitSpinner" layoutX="14.0" layoutY="242.0" max="10000" min="1" prefHeight="25.0" prefWidth="144.0" />
+      <Spinner fx:id="pdfsLimitSpinner" editable="true" layoutX="14.0" layoutY="242.0" max="10000" min="1" prefHeight="25.0" prefWidth="144.0" />
       <Label layoutX="14.0" layoutY="226.0" prefHeight="17.0" prefWidth="144.0" text="Pdfs limit:" />
       <Button fx:id="selectDictionaryFileButton" layoutX="14.0" layoutY="543.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="144.0" text="Select dictionary file" />
       <Label fx:id="dictionaryInfoLabel" layoutX="14.0" layoutY="526.0" prefHeight="17.0" prefWidth="144.0" text="File not selected" />

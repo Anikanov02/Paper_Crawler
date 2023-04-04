@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 
 public class GlobalConstants {
@@ -18,7 +19,7 @@ public class GlobalConstants {
 
     public static File BIBTEX_FILTERED;
 
-    public static File DOWNLOADED_PDFS_DIR;
+    public static File FAILED_PDFS_DIR;
 
     public static File FILTERED_PDFS_DIR;
 
@@ -26,49 +27,50 @@ public class GlobalConstants {
 
     public static final String basePath = new File("").getAbsolutePath();
 
+    public static String jarPath;
+
     static {
-        try {
-            refreshOutputDir();
-            final String filePathBuilder = basePath + "/core/src/main/resources/regexes.txt";
-            final Scanner regexLoader = new Scanner(new File(filePathBuilder));
-            while (regexLoader.hasNext()) {
-                linkMatchingRegexes.add(regexLoader.nextLine());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        final Scanner regexLoader = new Scanner(GlobalConstants.class.getClassLoader().getResourceAsStream("regexes.txt"));
+        while (regexLoader.hasNext()) {
+            linkMatchingRegexes.add(regexLoader.nextLine());
         }
     }
 
+    public static void setJarPath(String path) {
+        jarPath = path;
+    }
+
     public static void refreshOutputDir() throws IOException {
-        BIBTEX_OUTPUT = new File(basePath + "/output/bibtex.txt");
+        final String path = Objects.isNull(jarPath) ? basePath : jarPath;
+        BIBTEX_OUTPUT = new File(path + "/output/bibtex.txt");
         if (BIBTEX_OUTPUT.exists()) {
             BIBTEX_OUTPUT.delete();
         }
         BIBTEX_OUTPUT.createNewFile();
 
-        BIBTEX_FILTRATION_FAILED = new File(basePath + "/output/bibtex-failed.txt");
+        BIBTEX_FILTRATION_FAILED = new File(path + "/output/bibtex-failed.txt");
         if (BIBTEX_FILTRATION_FAILED.exists()) {
             BIBTEX_FILTRATION_FAILED.delete();
         }
         BIBTEX_FILTRATION_FAILED.createNewFile();
 
-        BIBTEX_FILTERED = new File(basePath + "/output/bibtex-filtered.txt");
+        BIBTEX_FILTERED = new File(path + "/output/bibtex-filtered.txt");
         if (BIBTEX_FILTERED.exists()) {
             BIBTEX_FILTERED.delete();
         }
         BIBTEX_FILTERED.createNewFile();
 
-        DOWNLOADED_PDFS_DIR = new File(basePath + "/output/pdfs");
-        if (!DOWNLOADED_PDFS_DIR.exists()) {
-            DOWNLOADED_PDFS_DIR.createNewFile();
+        FAILED_PDFS_DIR = new File(path + "/output/failedPdfs");
+        if (!FAILED_PDFS_DIR.exists()) {
+            FAILED_PDFS_DIR.mkdir();
         }
 
-        FILTERED_PDFS_DIR = new File(basePath + "/output/filteredPdfs");
+        FILTERED_PDFS_DIR = new File(path + "/output/filteredPdfs");
         if (!FILTERED_PDFS_DIR.exists()) {
-            FILTERED_PDFS_DIR.createNewFile();
+            FILTERED_PDFS_DIR.mkdir();
         }
 
-        FileUtils.cleanDirectory(DOWNLOADED_PDFS_DIR);
+        FileUtils.cleanDirectory(FAILED_PDFS_DIR);
         FileUtils.cleanDirectory(FILTERED_PDFS_DIR);
     }
 
@@ -82,4 +84,5 @@ public class GlobalConstants {
     public static final String CROSSREF_DEPTH = "CrossrefDepth";
     public static final String SCHOLARS_DEPTH = "ScholarsDepth";
     public static final String GENERAL_DEPTH = "GeneralDepth";
+    public static final int DEFAULT_REPEATING_REQUESTS_LIMIT = 3;
 }

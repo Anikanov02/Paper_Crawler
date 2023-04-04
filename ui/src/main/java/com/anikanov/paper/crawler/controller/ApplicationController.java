@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 @Component
 @FxmlView("main-stage.fxml")
 @RequiredArgsConstructor
-public class ApplicationController {
+public class ApplicationController implements Stoppable {
     @FXML
     private ChoiceBox<ApproachOption> approachChooser;
 
@@ -95,6 +95,8 @@ public class ApplicationController {
 
     private final SciHubPdfSource sciHubPdfSource;
 
+    private final ChromeCookiesExtractor cookiesExtractor;
+
     private final FileChooser fileChooser = new FileChooser();
 
     private final FileChooser dictionaryChooser = new FileChooser();
@@ -104,6 +106,8 @@ public class ApplicationController {
     private File dictionary = null;
 
     private Long executed = 0L;
+
+    private boolean running = false;
 
     @FXML
     private void initialize() {
@@ -144,6 +148,11 @@ public class ApplicationController {
         });
 
         crawlButton.setOnAction(actionEvent -> {
+            if (running) {
+                stop();
+                return;
+            }
+            running = true;
             executorService.submit(() -> {
                 switch (approachChooser.getValue()) {
                     case PDF -> executePdfInputCrawling();
@@ -154,7 +163,7 @@ public class ApplicationController {
 
         failedPdfsDeletionButton.setOnAction(actionEvent -> {
             try {
-                FileUtils.cleanDirectory(GlobalConstants.DOWNLOADED_PDFS_DIR);
+                FileUtils.cleanDirectory(GlobalConstants.FAILED_PDFS_DIR);
             } catch (IOException e) {
                 outputArea.setText(e.getMessage());
             }
@@ -177,10 +186,11 @@ public class ApplicationController {
             message = "dictionary should have txt extension";
         } else {
             try {
+                start();
                 final AppCallback callback = new AppCallback();
                 final DepthProcessorResult result = depthProcessorService.process(new FileInputStream(selectedFile), callback);
                 message = manageOutput(result, callback);
-                failedPdfsDeletionButton.setDisable(false);
+                stop();
             } catch (IOException e) {
                 message = e.getMessage();
             }
@@ -198,10 +208,11 @@ public class ApplicationController {
         } else if (dictionary != null && !getExtension(dictionary).equalsIgnoreCase("txt")) {
             message = "dictionary should have txt extension";
         } else {
+            start();
             final AppCallback callback = new AppCallback();
             final DepthProcessorResult result = depthProcessorService.process(doi, callback);
             message = manageOutput(result, callback);
-            failedPdfsDeletionButton.setDisable(false);
+            stop();
         }
         outputArea.setText(message);
     }
@@ -212,9 +223,6 @@ public class ApplicationController {
         List<AggregatedLinkInfo> keySet = map.keySet().stream().sorted(Comparator.comparing(map::get).reversed()).toList();
         if (keySet.size() > outputLimitSpinner.getValue()) {
             keySet = keySet.subList(0, outputLimitSpinner.getValue());
-        }
-        if (depthProcessorService instanceof CrossrefDepthProcessorService) {
-            ((CrossrefDepthProcessorService)depthProcessorService).enrichWithTitle(keySet, callback);
         }
         if (keySet.isEmpty()) {
             output.append("Unreadable input or nothing to extract.");
@@ -229,7 +237,6 @@ public class ApplicationController {
                         .append("----------------------------------------------------------")
                         .append(System.lineSeparator());
             }
-
             for (AggregatedLinkInfo info : result.getBrokenLinks()) {
                 output.append("<======================================================>").append(System.lineSeparator())
                         .append("Broken links: ").append(System.lineSeparator())
@@ -239,12 +246,11 @@ public class ApplicationController {
                         .append("----------------------------------------------------------")
                         .append(System.lineSeparator());
             }
-
             try {
                 GlobalConstants.refreshOutputDir();
                 serializer.saveData(keySet.stream().map(AggregatedLinkInfo::toBibtex).collect(Collectors.toList()));
                 final String pdfSrc = pdfSource.getText().trim();
-                final PdfSource source = pdfSrc.isEmpty() ? sciHubPdfSource : new GenericPdfSource(pdfSrc);
+                final PdfSource source = pdfSrc.isEmpty() ? sciHubPdfSource : new GenericPdfSource(pdfSrc, cookiesExtractor);
                 final KeyWordsFilter keyWordsFilter = new KeyWordsFilter(keyWordField.getText());
                 pdfDownloader.download(keySet, pdfsLimitSpinner.getValue(), keyWordsFilter, filtrationModeChooser.getValue(), source, callback);
             } catch (Exception e) {
@@ -288,6 +294,24 @@ public class ApplicationController {
     private boolean acceptableExtension(File file) {
         final String ext = getExtension(file);
         return GlobalConstantsUi.SUPPORTED_EXTENSIONS.stream().anyMatch(allowed -> allowed.equalsIgnoreCase(ext));
+    }
+
+    private void start() {
+        Platform.runLater(() -> {
+            failedPdfsDeletionButton.setDisable(true);
+            crawlButton.setText("Stop");
+        });
+    }
+
+    @Override
+    public void stop() {
+        this.running = false;
+        depthProcessorService.stop();
+        pdfDownloader.stop();
+        Platform.runLater(() -> {
+            failedPdfsDeletionButton.setDisable(false);
+            crawlButton.setText("Crawl");
+        });
     }
 
     public class AppCallback extends ProgressCallback {

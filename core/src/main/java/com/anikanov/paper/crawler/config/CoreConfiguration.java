@@ -17,7 +17,7 @@ public class CoreConfiguration {
     @Bean
     public CrossrefApiService crossrefApiService(AppProperties properties) {
         final AppProperties.CrossrefConfig crossrefConfig = properties.getCrossref();
-        return new CrossrefApiService(crossrefConfig.getBaseUrl(), crossrefConfig.getApiKey(), crossrefConfig.getSecret());
+        return new CrossrefApiService(crossrefConfig.getBaseUrl(), crossrefConfig.getApiKey(), crossrefConfig.getSecret(), crossrefConfig.getMaxRepeatingRequests());
     }
 
     @Bean

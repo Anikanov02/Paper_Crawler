@@ -70,4 +70,9 @@ public class ScholarsDepthProcessorService implements DepthProcessor {
                 })
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public void stop() {
+
+    }
 }
