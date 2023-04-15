@@ -21,8 +21,9 @@ public class ScholarsApiService extends ScholarsApiRetrofitImpl<ScholarsApiRetro
     public ScholarsOrganicSearchResponse getOrganicResults(String query, ProgressCallback callback) {
         final ScholarsOrganicSearchResponse response;
         try {
+            long startTime = System.currentTimeMillis();
             response = executeSync(getAPIImpl().getOrganicResults(Engine.ORGANIC, query, this.apiKey));
-            callback.notifyMinor();
+            callback.notifyMinor(System.currentTimeMillis() - startTime);
             log(query, response);
         } catch (IOException e) {
             log.error("Error occurred (getOrganicResults): message:{}, requesting again...", e.getMessage());
@@ -35,8 +36,9 @@ public class ScholarsApiService extends ScholarsApiRetrofitImpl<ScholarsApiRetro
     public ScholarsMetadataResponse getSearchMetadata(String query, ProgressCallback callback) {
         final ScholarsMetadataResponse response;
         try {
+            long startTime = System.currentTimeMillis();
             response = executeSync(getAPIImpl().getMetadata(Engine.CITE, query, this.apiKey));
-            callback.notifyMinor();
+            callback.notifyMinor(System.currentTimeMillis() - startTime);
             log(query, response);
         } catch (IOException e) {
             log.error("Error occurred (getSearchMetadata): message:{}, requesting again...", e.getMessage());

@@ -105,6 +105,8 @@ public class ApplicationController implements Stoppable {
 
     private File dictionary = null;
 
+    private KeyWordsFilter keyWordsFilter;
+
     private Long executed = 0L;
 
     private boolean running = false;
@@ -154,6 +156,9 @@ public class ApplicationController implements Stoppable {
             }
             running = true;
             executorService.submit(() -> {
+                if (depthProcessorService instanceof CrossrefDepthProcessorService) {
+                    ((CrossrefDepthProcessorService) depthProcessorService).setLimit(outputLimitSpinner.getValue());
+                }
                 switch (approachChooser.getValue()) {
                     case PDF -> executePdfInputCrawling();
                     case DOI -> executeDoiInputCrawling();
@@ -191,7 +196,7 @@ public class ApplicationController implements Stoppable {
                 final DepthProcessorResult result = depthProcessorService.process(new FileInputStream(selectedFile), callback);
                 message = manageOutput(result, callback);
                 stop();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 message = e.getMessage();
             }
         }
@@ -208,11 +213,15 @@ public class ApplicationController implements Stoppable {
         } else if (dictionary != null && !getExtension(dictionary).equalsIgnoreCase("txt")) {
             message = "dictionary should have txt extension";
         } else {
-            start();
-            final AppCallback callback = new AppCallback();
-            final DepthProcessorResult result = depthProcessorService.process(doi, callback);
-            message = manageOutput(result, callback);
-            stop();
+            try {
+                start();
+                final AppCallback callback = new AppCallback();
+                final DepthProcessorResult result = depthProcessorService.process(doi, callback);
+                message = manageOutput(result, callback);
+                stop();
+            } catch (Exception e) {
+                message = e.getMessage();
+            }
         }
         outputArea.setText(message);
     }
@@ -220,6 +229,7 @@ public class ApplicationController implements Stoppable {
     private String manageOutput(DepthProcessorResult result, AppCallback callback) {
         final StringBuilder output = new StringBuilder("Result: ").append(System.lineSeparator());
         final Map<AggregatedLinkInfo, Long> map = result.getResult();
+
         List<AggregatedLinkInfo> keySet = map.keySet().stream().sorted(Comparator.comparing(map::get).reversed()).toList();
         if (keySet.size() > outputLimitSpinner.getValue()) {
             keySet = keySet.subList(0, outputLimitSpinner.getValue());
@@ -251,7 +261,6 @@ public class ApplicationController implements Stoppable {
                 serializer.saveData(keySet.stream().map(AggregatedLinkInfo::toBibtex).collect(Collectors.toList()));
                 final String pdfSrc = pdfSource.getText().trim();
                 final PdfSource source = pdfSrc.isEmpty() ? sciHubPdfSource : new GenericPdfSource(pdfSrc, cookiesExtractor);
-                final KeyWordsFilter keyWordsFilter = new KeyWordsFilter(keyWordField.getText());
                 pdfDownloader.download(keySet, pdfsLimitSpinner.getValue(), keyWordsFilter, filtrationModeChooser.getValue(), source, callback);
             } catch (Exception e) {
                 output.append(e.getMessage());
@@ -297,6 +306,7 @@ public class ApplicationController implements Stoppable {
     }
 
     private void start() {
+        this.keyWordsFilter = new KeyWordsFilter(keyWordField.getText());
         Platform.runLater(() -> {
             failedPdfsDeletionButton.setDisable(true);
             crawlButton.setText("Stop");
@@ -316,6 +326,7 @@ public class ApplicationController implements Stoppable {
 
     public class AppCallback extends ProgressCallback {
         private Long minorIteration;
+        private List<Long> executionTimes;
         private Long majorIteration;
         private BigDecimal depth;
         private EventType type;
@@ -324,13 +335,21 @@ public class ApplicationController implements Stoppable {
             minorIteration = 0L;
             majorIteration = 0L;
             depth = BigDecimal.ZERO;
+            this.executionTimes = new ArrayList<>();
         }
 
         @Override
-        public void notifyMinor() {
+        public void notifyMinor(Long executionTime) {
             minorIteration = ++executed;
+            executionTimes.add(executionTime);
             final String processName = type.getName() + Optional.ofNullable(depth).map(d -> " " + d.toPlainString()).orElse("");
-            Platform.runLater(() -> progressLabel.setText(String.format("%s: %s/%s", processName, minorIteration, majorIteration)));
+            Platform.runLater(() -> progressLabel.setText(String.format("%s: %s %s/%s %s est. time sec: %s",
+                    processName,
+                    System.lineSeparator(),
+                    minorIteration,
+                    majorIteration,
+                    System.lineSeparator(),
+                    calculateEstimatedExecutionTime())));
         }
 
         @Override
@@ -341,8 +360,15 @@ public class ApplicationController implements Stoppable {
                 return;
             }
             majorIteration = newLayerRequestCount;
+            this.executionTimes = new ArrayList<>();
             this.type = type;
             this.depth = depth;
+        }
+
+        private Long calculateEstimatedExecutionTime() {
+            final long leftIterations = majorIteration - minorIteration;
+            final long avgTime = executionTimes.stream().reduce(0L, Long::sum) / minorIteration;
+            return avgTime * leftIterations / 1000;
         }
     }
 
@@ -358,7 +384,7 @@ public class ApplicationController implements Stoppable {
 
         @Override
         public String toString() {
-           return code;
+            return code;
         }
     }
 }

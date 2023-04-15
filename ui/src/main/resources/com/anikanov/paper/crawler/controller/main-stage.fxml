@@ -15,7 +15,7 @@
       <Button fx:id="crawlButton" layoutX="14.0" layoutY="190.0" mnemonicParsing="false" prefHeight="36.0" prefWidth="144.0" text="Crawl" />
       <TextArea fx:id="outputArea" editable="false" layoutX="170.0" layoutY="11.0" prefHeight="613.0" prefWidth="755.0" promptText="Output:" />
       <Spinner fx:id="maxDepthSpinner" editable="true" layoutX="14.0" layoutY="326.0" max="10" min="1" prefHeight="25.0" prefWidth="144.0" />
-      <Label fx:id="progressLabel" layoutX="14.0" layoutY="368.0" prefHeight="17.0" prefWidth="144.0" />
+      <Label fx:id="progressLabel" layoutX="14.0" layoutY="368.0" prefHeight="59.0" prefWidth="144.0" />
       <Label layoutX="14.0" layoutY="351.0" prefHeight="17.0" prefWidth="144.0" text="Executed requests:" />
       <Label layoutX="14.0" layoutY="309.0" prefHeight="17.0" prefWidth="144.0" text="Search depth:" />
       <ChoiceBox fx:id="approachChooser" layoutX="14.0" layoutY="14.0" prefHeight="25.0" prefWidth="144.0" />

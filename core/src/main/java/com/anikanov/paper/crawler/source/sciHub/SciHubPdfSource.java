@@ -29,8 +29,12 @@ public class SciHubPdfSource implements PdfSource {
     public URL getPaperUrl(AggregatedLinkInfo info) throws IOException {
         final Map<String, String> cookies = fetchCookies();
         final Document doc = Jsoup.connect(BASE_URL + info.getDoi()).cookies(cookies).get();
-        final Element pdf = doc.getElementById("article").getElementById("pdf");
-        return new URL("https:" + pdf.attributes().get("src"));
+        if (doc.getElementById("article") != null && doc.getElementById("article").getElementById("pdf") != null) {
+            final Element pdf = doc.getElementById("article").getElementById("pdf");
+            final String src = pdf.attributes().get("src");
+            return src.startsWith("/downloads") ? new URL(BASE_URL + src) : new URL("https:" + pdf.attributes().get("src"));
+        }
+        return null;
     }
 
     private Map<String, String> fetchCookies() {

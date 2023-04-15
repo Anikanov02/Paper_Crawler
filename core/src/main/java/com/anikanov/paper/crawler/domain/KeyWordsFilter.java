@@ -20,17 +20,8 @@ public class KeyWordsFilter {
     }
 
     private Set<Set<String>> parse(String expression) {
-        final Set<Set<String>> opened = new HashSet<>();
-        if (expression.startsWith("{") && expression.endsWith("}")) {
-            expression = expression.replaceFirst("\\{", "");
-            expression = expression.substring(0, expression.length() - 1);
-        } else if (expression.startsWith("!{") && expression.endsWith("}")) {
-            expression = expression.replaceFirst("!\\{", "");
-            expression = expression.substring(0, expression.length() - 1);
-            expression = negate(expression);
-        }
         final Set<Set<String>> acceptedCombinations = new HashSet<>();
-        final Set<String> combination = new HashSet<>();
+        Set<Set<String>> subResult = new HashSet<>();
         StringBuilder exp = new StringBuilder();
         StringBuilder word = new StringBuilder();
         int bracketCounter = 0;
@@ -43,7 +34,9 @@ public class KeyWordsFilter {
             } else if (symbol == '}') {
                 bracketCounter--;
                 exp.append(symbol);
-                continue;
+                if (i != expression.length() - 1) {
+                    continue;
+                }
             } else if (symbol == '!') {
                 exp.append(symbol);
                 continue;
@@ -54,15 +47,15 @@ public class KeyWordsFilter {
                         if (exp.toString().equals("!")) {
                             throw new RuntimeException("invalid expression format");
                         }
-                        combination.add(word.toString());
+                        subResult = openBraces(Set.of(subResult, Set.of(Set.of(word.toString()))));
+                        acceptedCombinations.addAll(subResult);
                         word = new StringBuilder();
-                        acceptedCombinations.add(new HashSet<>(combination));
-                        combination.clear();
+                        subResult = new HashSet<>();
                     } else if (symbol == '&') {
                         if (exp.toString().equals("!")) {
                             throw new RuntimeException("invalid expression format");
                         }
-                        combination.add(word.toString());
+                        subResult = openBraces(Set.of(subResult, Set.of(Set.of(word.toString()))));
                         word = new StringBuilder();
                     } else {
                         if (exp.toString().equals("!")) {
@@ -70,20 +63,29 @@ public class KeyWordsFilter {
                             word.append("!");
                         }
                         word.append(symbol);
+                        if (i == expression.length() - 1) {
+                            subResult = openBraces(Set.of(subResult, Set.of(Set.of(word.toString()))));
+                            acceptedCombinations.addAll(subResult);
+                        }
                     }
                 } else {
                     if (symbol == '|') {
-                        acceptedCombinations.addAll(parse(exp.toString()));
+                        final Set<Set<String>> parsedExpression = exp.toString().startsWith("!") ?
+                                parse(negate(exp.toString())) : parse(exp.substring(1, exp.length() - 1));
+                        acceptedCombinations.addAll(openBraces(Set.of(subResult, parsedExpression)));
+                        exp = new StringBuilder();
+                        subResult = new HashSet<>();
                     } else if (symbol == '&') {
-                        final Set<Set<String>> parsedExp = parse(exp.toString());
-                        final String cutExpression = expression.substring(i + 1, expression.length() - 1);
-//                        if (cutExpression.startsWith("{")) {
-//
-//                        }
-                        final Set<String> nextMultiplier = parse(expression.substring(i + 1, expression.length() - 1)).stream().findFirst().orElse(Collections.emptySet());
-                        final int indexesToSkip = String.join("", nextMultiplier).length() + nextMultiplier.size();
-                        i += indexesToSkip;
-                        acceptedCombinations.addAll(openBraces(Set.of(parsedExp, Set.of(nextMultiplier))));
+                        final Set<Set<String>> parsedExpression = exp.toString().startsWith("!") ?
+                                parse(negate(exp.toString())) : parse(exp.substring(1, exp.length() - 1));
+                        exp = new StringBuilder();
+                        subResult = openBraces(Set.of(subResult, parsedExpression));
+                    } else if (i == expression.length() - 1) {
+                        final Set<Set<String>> parsedExpression = exp.toString().startsWith("!") ?
+                                parse(negate(exp.toString())) : parse(exp.substring(1, exp.length() - 1));
+                        acceptedCombinations.addAll(openBraces(Set.of(subResult, parsedExpression)));
+                        exp = new StringBuilder();
+                        subResult = new HashSet<>();
                     } else {
                         throw new RuntimeException("invalid expression format");
                     }
@@ -92,27 +94,95 @@ public class KeyWordsFilter {
                 exp.append(symbol);
             }
         }
-//        final Set<Set<String>> acceptedCombinations = Arrays.stream(expression.split("\\|"))
-//                .map(group -> Arrays.stream(group.split("&")).map(String::trim).map(String::toLowerCase).collect(Collectors.toSet())).collect(Collectors.toSet());
-//        acceptedCombinations.forEach(combination -> {
-//            final Set<String> common = combination.stream().filter(word -> !word.matches("!?\\{.+}")).collect(Collectors.toSet());
-//            final Set<Set<Set<String>>> parsedBraces = combination.stream().filter(word -> word.matches("!?\\{.+}")).map(this::parse).collect(Collectors.toSet());
-//            parsedBraces.add(Set.of(common));
-//            opened.addAll(openBraces(parsedBraces));
-//        });
-        return opened;
+        return acceptedCombinations;
     }
 
+    //parses a single bracket !{}
     private String negate(String expression) {
-
-        return expression;
+        expression = expression.replaceFirst("!\\{", "");
+        expression = expression.substring(0, expression.length() - 1);
+        final StringBuilder result = new StringBuilder("{");
+        StringBuilder exp = new StringBuilder();
+        StringBuilder word = new StringBuilder();
+        int bracketCounter = 0;
+        for (int i = 0; i < expression.length(); i++) {
+            char symbol = expression.charAt(i);
+            if (symbol == '{') {
+                bracketCounter++;
+                exp.append(symbol);
+                continue;
+            } else if (symbol == '}') {
+                bracketCounter--;
+                exp.append(symbol);
+                if (i != expression.length() - 1) {
+                    continue;
+                }
+            } else if (symbol == '!') {
+                exp.append(symbol);
+                continue;
+            }
+            if (bracketCounter == 0) {
+                if (exp.isEmpty() || exp.toString().equals("!")) {
+                    if (symbol == '|') {
+                        if (exp.toString().equals("!")) {
+                            throw new RuntimeException("invalid expression format");
+                        }
+                        final String negatedWord = word.toString().startsWith("!") ? word.toString().replace("!", "") : "!" + word;
+                        result.append(negatedWord)
+                                .append("}&{");
+                        word = new StringBuilder();
+                    } else if (symbol == '&') {
+                        if (exp.toString().equals("!")) {
+                            throw new RuntimeException("invalid expression format");
+                        }
+                        final String negatedWord = word.toString().startsWith("!") ? word.toString().replace("!", "") : "!" + word;
+                        result.append(negatedWord)
+                                .append("|");
+                        word = new StringBuilder();
+                    } else {
+                        if (exp.toString().equals("!")) {
+                            exp = new StringBuilder();
+                            word.append("!");
+                        }
+                        word.append(symbol);
+                        if (i == expression.length() - 1) {
+                            final String negatedWord = word.toString().startsWith("!") ? word.toString().replace("!", "") : "!" + word;
+                            result.append(negatedWord)
+                                    .append("}");
+                        }
+                    }
+                } else {
+                    if (symbol == '|') {
+                        final String negatedExp = exp.toString().startsWith("!") ? exp.toString().replace("!", "") : "!" + exp;
+                        result.append(negatedExp)
+                                .append("}&{");
+                        exp = new StringBuilder();
+                    } else if (symbol == '&') {
+                        final String negatedExp = exp.toString().startsWith("!") ? exp.toString().replace("!", "") : "!" + exp;
+                        result.append(negatedExp)
+                                .append("|");
+                        exp = new StringBuilder();
+                    } else if (i == expression.length() - 1) {
+                        final String negatedExp = exp.toString().startsWith("!") ? exp.toString().replace("!", "") : "!" + exp;
+                        result.append(negatedExp)
+                                .append("}");
+                        exp = new StringBuilder();
+                    } else {
+                        throw new RuntimeException("invalid expression format");
+                    }
+                }
+            } else {
+                exp.append(symbol);
+            }
+        }
+        return result.toString();
     }
 
     private Set<Set<String>> openBraces(Set<Set<Set<String>>> input) {
         if (input.isEmpty()) {
             return Collections.emptySet();
         }
-        List<Set<Set<String>>> braces = new ArrayList<>(input);
+        List<Set<Set<String>>> braces = input.stream().filter(inp -> !inp.isEmpty()).distinct().toList();
         final Set<Set<String>> result = new HashSet<>(braces.get(0));
         for (int i = 1; i < braces.size(); i++) {
             final Set<Set<String>> sub = new HashSet<>(result);

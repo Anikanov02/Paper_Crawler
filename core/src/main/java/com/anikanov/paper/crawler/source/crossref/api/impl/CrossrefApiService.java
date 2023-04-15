@@ -30,8 +30,9 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
     private CrossrefMetadataResponse getWorks(WorksBibliographicSearchRequest request, ProgressCallback callback, int iteration) {
         final CrossrefMetadataResponse response;
         try {
+            long startTime = System.currentTimeMillis();
             response = executeSync(getAPIImpl().getWorks(request.getRequestText(), request.getRows(), request.getSelect()));
-            callback.notifyMinor();
+            callback.notifyMinor(System.currentTimeMillis() - startTime);
             log(request, response);
         } catch (IOException e) {
             String message = e.getMessage();
@@ -55,8 +56,9 @@ public class CrossrefApiService extends CrossrefApiRetrofitImpl<CrossrefApiRetro
     private CrossrefMetadataResponse.Item getWork(String doi, ProgressCallback callback, int iteration) {
         final CrossrefMetadataResponse.Item response;
         try {
+            long startTime = System.currentTimeMillis();
             response = executeSync(getAPIImpl().getWork(doi));
-            callback.notifyMinor();
+            callback.notifyMinor(System.currentTimeMillis() - startTime);
             log(doi, response);
         } catch (IOException e) {
             String message = e.getMessage();

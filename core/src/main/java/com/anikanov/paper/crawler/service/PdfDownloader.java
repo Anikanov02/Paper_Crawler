@@ -38,26 +38,35 @@ public class PdfDownloader implements Stoppable {
             final FileWriter filtrationFailedWriter = new FileWriter(GlobalConstants.BIBTEX_FILTRATION_FAILED, true)) {
             int downloaded = 0;
             for (AggregatedLinkInfo link : links) {
+                long startTime = System.currentTimeMillis();
                 if (!running) {
                     break;
                 }
-                File downloadedFile;
-                callback.notifyMinor();
+                File downloadedFile = null;
                 if (keyWordsFilter.accepts(link.getTitle())) {
                     try {
-                        downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FILTERED_PDFS_DIR);
+                        final URL url = source.getPaperUrl(link);
+                        if (url != null) {
+                            downloadedFile = download(link, url, GlobalConstants.FILTERED_PDFS_DIR);
+                        }
                     } catch (IOException e) {
+                        callback.notifyMinor(System.currentTimeMillis() - startTime);
                         continue;
                     }
                     downloaded++;
                     serializer.saveData(List.of(link.toBibtex()), filteredWriter);
+                    callback.notifyMinor(System.currentTimeMillis() - startTime);
                 } else {
                     final String html = fetchFullPageHtml(DOI_ORG_BASE_URL + link.getDoi());
                     if (keyWordsFilter.accepts(link.getTitle() + html)) {
                         //FILTERED
                         try {
-                            downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FILTERED_PDFS_DIR);
+                            final URL url = source.getPaperUrl(link);
+                            if (url != null) {
+                                downloadedFile = download(link, url, GlobalConstants.FILTERED_PDFS_DIR);
+                            }
                         } catch (IOException e) {
+                            callback.notifyMinor(System.currentTimeMillis() - startTime);
                             continue;
                         }
                         downloaded++;
@@ -66,20 +75,28 @@ public class PdfDownloader implements Stoppable {
                     }
                     if (filtrationOption == FiltrationOption.ADVANCED) {
                         try {
-                            downloadedFile = download(link, source.getPaperUrl(link), GlobalConstants.FAILED_PDFS_DIR);
+                            final URL url = source.getPaperUrl(link);
+                            if (url != null) {
+                                downloadedFile = download(link, url, GlobalConstants.FILTERED_PDFS_DIR);
+                            }
                         } catch (IOException e) {
+                            callback.notifyMinor(System.currentTimeMillis() - startTime);
                             continue;
                         }
                         downloaded++;
-                        final String fulltext = fullTextExtractor.getText(new FileInputStream(downloadedFile));
-                        if (keyWordsFilter.accepts(link.getTitle() + html + fulltext)) {
-                            FileCopyUtils.copy(downloadedFile, new File(GlobalConstants.FILTERED_PDFS_DIR, normalizeName(link.getTitle()) + ".pdf"));
-                            serializer.saveData(List.of(link.toBibtex()), filteredWriter);
-                            downloadedFile.delete();//delete from general directory
-                            continue;
+                        if (downloadedFile != null) {
+                            final String fulltext = fullTextExtractor.getText(new FileInputStream(downloadedFile));
+                            if (keyWordsFilter.accepts(link.getTitle() + html + fulltext)) {
+                                FileCopyUtils.copy(downloadedFile, new File(GlobalConstants.FILTERED_PDFS_DIR, normalizeName(link.getTitle()) + ".pdf"));
+                                serializer.saveData(List.of(link.toBibtex()), filteredWriter);
+                                downloadedFile.delete();//delete from general directory
+                                callback.notifyMinor(System.currentTimeMillis() - startTime);
+                                continue;
+                            }
                         }
                     }
                     serializer.saveData(List.of(link.toBibtex()), filtrationFailedWriter);
+                    callback.notifyMinor(System.currentTimeMillis() - startTime);
                 }
                 if (downloaded >= limit) {
                     break;

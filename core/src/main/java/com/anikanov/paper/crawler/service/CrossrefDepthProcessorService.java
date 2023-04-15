@@ -8,6 +8,7 @@ import com.anikanov.paper.crawler.source.crossref.api.impl.CrossrefApiService;
 import com.anikanov.paper.crawler.source.crossref.api.request.WorksBibliographicSearchRequest;
 import com.anikanov.paper.crawler.source.crossref.api.response.CrossrefMetadataResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,8 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
     private final LinkExtractorService extractorService;
     private final ExecutorService executorService;
     private boolean running = false;
+    @Setter
+    private Integer limit = null;
 
     @Override
     public DepthProcessorResult process(InputStream inputStream, ProgressCallback callback) throws IOException {
@@ -41,7 +44,11 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         final List<AggregatedLinkInfo> encounteredInstances = new ArrayList<>(result);
         final List<AggregatedLinkInfo> brokenLinks = new ArrayList<>();
         process(result, inputReferences, encounteredInstances, brokenLinks, BigDecimal.ONE, callback);
-        final Map<AggregatedLinkInfo, Long> map = result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        final Map<AggregatedLinkInfo, Long> subResult = result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        final Map<AggregatedLinkInfo, Long> map = new HashMap<>();
+        final List<AggregatedLinkInfo> orderedKeySet = subResult.keySet().stream().sorted(Comparator.comparing(subResult::get).reversed()).toList();
+        final List<AggregatedLinkInfo> trimmedKeySet = limit == null || limit <= 0 ? orderedKeySet : orderedKeySet.subList(0, Math.min(orderedKeySet.size(), limit));
+        trimmedKeySet.forEach(link -> map.put(link, subResult.get(link)));
         enrichWithTitle(map.keySet(), callback);
         stop();
         return DepthProcessorResult.builder()
@@ -61,7 +68,11 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         if (Objects.nonNull(response)) {
             process(result, toAggregatedLinks(response), encounteredInstances, brokenLinks, BigDecimal.ONE, callback);
         }
-        final Map<AggregatedLinkInfo, Long> map = result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        final Map<AggregatedLinkInfo, Long> subResult = result.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        final Map<AggregatedLinkInfo, Long> map = new HashMap<>();
+        final List<AggregatedLinkInfo> orderedKeySet = subResult.keySet().stream().sorted(Comparator.comparing(subResult::get).reversed()).toList();
+        final List<AggregatedLinkInfo> trimmedKeySet = limit == null || limit <= 0 ? orderedKeySet : orderedKeySet.subList(0, Math.min(orderedKeySet.size(), limit));
+        trimmedKeySet.forEach(link -> map.put(link, subResult.get(link)));
         enrichWithTitle(map.keySet(), callback);
         stop();
         return DepthProcessorResult.builder()
@@ -175,7 +186,7 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         final List<String> authors = Optional.ofNullable(item.getAuthor()).map(authrs -> authrs.stream().map(CrossrefMetadataResponse.Item.Author::getFamily).collect(Collectors.toList())).orElse(Collections.emptyList());
         final Integer year = Optional.ofNullable(item.getCreated()).flatMap(created -> Optional.ofNullable(created.getDateTime()).map(LocalDateTime::getYear)).orElse(null);
         final String issue = Optional.ofNullable(item.getIssue()).orElse("");
-        final Integer month = Optional.ofNullable(item.getCreated()).flatMap(created -> Optional.ofNullable(created.getDateTime()).map(dt-> dt.getMonth().getValue())).orElse(null);
+        final Integer month = Optional.ofNullable(item.getCreated()).flatMap(created -> Optional.ofNullable(created.getDateTime()).map(dt -> dt.getMonth().getValue())).orElse(null);
         final String volume = Optional.ofNullable(item.getVolume()).orElse("");
 //        final String pages = Optional.ofNullable().orElse();//?
         final String journalTitle = Optional.ofNullable(item.getJournalTitles()).map((titles) -> titles.isEmpty() ? "" : titles.get(0)).orElse("");
