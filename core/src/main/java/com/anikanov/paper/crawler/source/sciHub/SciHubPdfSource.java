@@ -1,7 +1,7 @@
 package com.anikanov.paper.crawler.source.sciHub;
 
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
-import com.anikanov.paper.crawler.service.ChromeCookiesExtractor;
+import com.anikanov.paper.crawler.service.cookie.ChromeCookiesExtractor;
 import com.anikanov.paper.crawler.source.PdfSource;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
@@ -10,12 +10,9 @@ import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.net.CookieStore;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,7 +29,7 @@ public class SciHubPdfSource implements PdfSource {
         if (doc.getElementById("article") != null && doc.getElementById("article").getElementById("pdf") != null) {
             final Element pdf = doc.getElementById("article").getElementById("pdf");
             final String src = pdf.attributes().get("src");
-            return src.startsWith("/downloads") ? new URL(BASE_URL + src) : new URL("https:" + pdf.attributes().get("src"));
+            return src.startsWith("/downloads") ? new URL(BASE_URL + src) : new URL("https:" + src);
         }
         return null;
     }

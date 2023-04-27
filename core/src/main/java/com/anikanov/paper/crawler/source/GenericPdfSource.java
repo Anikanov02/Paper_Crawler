@@ -1,8 +1,7 @@
 package com.anikanov.paper.crawler.source;
 
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
-import com.anikanov.paper.crawler.service.ChromeCookiesExtractor;
-import lombok.AllArgsConstructor;
+import com.anikanov.paper.crawler.service.cookie.ChromeCookiesExtractor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;

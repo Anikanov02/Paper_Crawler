@@ -1,4 +1,4 @@
-package com.anikanov.paper.crawler.service;
+package com.anikanov.paper.crawler.service.cookie;
 
 import java.io.*;
 import java.net.InetAddress;

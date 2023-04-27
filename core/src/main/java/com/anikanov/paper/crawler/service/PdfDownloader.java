@@ -4,12 +4,15 @@ import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.domain.KeyWordsFilter;
 import com.anikanov.paper.crawler.source.PdfSource;
+import com.anikanov.paper.crawler.util.OutputUtil;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.pdf.PdfCopy;
 import com.itextpdf.text.pdf.PdfImportedPage;
 import com.itextpdf.text.pdf.PdfReader;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jbibtex.BibTeXObject;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileCopyUtils;
@@ -17,10 +20,12 @@ import org.springframework.util.FileCopyUtils;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PdfDownloader implements Stoppable {
     private static final String DOI_ORG_BASE_URL = "https://www.doi.org/";
     private final PdfFullTextExtractor fullTextExtractor;
@@ -31,77 +36,77 @@ public class PdfDownloader implements Stoppable {
 
     private boolean running = false;
 
-    public void download(List<AggregatedLinkInfo> links, Integer limit, KeyWordsFilter keyWordsFilter, FiltrationOption filtrationOption, PdfSource source, ProgressCallback callback) throws IOException, DocumentException {
+    public void download(String input, List<AggregatedLinkInfo> links, Integer limit, KeyWordsFilter keyWordsFilter, FiltrationOption filtrationOption, PdfSource source, ProgressCallback callback) throws IOException {
         running = true;
         callback.notifyMajor(ProgressCallback.EventType.LINKS_PROCESSING, (long) links.size(), null);
-        try (final FileWriter filteredWriter = new FileWriter(GlobalConstants.BIBTEX_FILTERED, true);
-            final FileWriter filtrationFailedWriter = new FileWriter(GlobalConstants.BIBTEX_FILTRATION_FAILED, true)) {
+        try (final FileWriter filteredWriter = new FileWriter(OutputUtil.getOutputDir(input, OutputUtil.OutputOption.BIBTEX_FILTERED), true);
+             final FileWriter filtrationFailedWriter = new FileWriter(OutputUtil.getOutputDir(input, OutputUtil.OutputOption.BIBTEX_FAILED), true);
+             final FileWriter exceptionFailedWriter = new FileWriter(OutputUtil.getOutputDir(input, OutputUtil.OutputOption.BIBTEX_EXCEPTION_FAILED), true)) {
             int downloaded = 0;
+            final List<BibTeXObject> filtered = new ArrayList<>();
+            final List<BibTeXObject> failed = new ArrayList<>();
+            final List<BibTeXObject> exceptionFailed = new ArrayList<>();
             for (AggregatedLinkInfo link : links) {
                 long startTime = System.currentTimeMillis();
-                if (!running) {
-                    break;
-                }
-                File downloadedFile = null;
-                if (keyWordsFilter.accepts(link.getTitle())) {
-                    try {
+                try {
+                    if (!running) {
+                        break;
+                    }
+                    File downloadedFile = null;
+                    if (keyWordsFilter.accepts(link.getTitle())) {
+                        filtered.add(link.toBibtex());
                         final URL url = source.getPaperUrl(link);
                         if (url != null) {
-                            downloadedFile = download(link, url, GlobalConstants.FILTERED_PDFS_DIR);
+                            downloadedFile = download(link, url, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FILTERED));
                         }
-                    } catch (IOException e) {
+                        downloaded++;
                         callback.notifyMinor(System.currentTimeMillis() - startTime);
-                        continue;
-                    }
-                    downloaded++;
-                    serializer.saveData(List.of(link.toBibtex()), filteredWriter);
-                    callback.notifyMinor(System.currentTimeMillis() - startTime);
-                } else {
-                    final String html = fetchFullPageHtml(DOI_ORG_BASE_URL + link.getDoi());
-                    if (keyWordsFilter.accepts(link.getTitle() + html)) {
-                        //FILTERED
-                        try {
+                    } else {
+                        final String html = fetchFullPageHtml(DOI_ORG_BASE_URL + link.getDoi());
+                        if (keyWordsFilter.accepts(link.getTitle() + html)) {
+                            //FILTERED
+                            filtered.add(link.toBibtex());
                             final URL url = source.getPaperUrl(link);
                             if (url != null) {
-                                downloadedFile = download(link, url, GlobalConstants.FILTERED_PDFS_DIR);
+                                downloadedFile = download(link, url, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FILTERED));
                             }
-                        } catch (IOException e) {
-                            callback.notifyMinor(System.currentTimeMillis() - startTime);
+                            downloaded++;
                             continue;
                         }
-                        downloaded++;
-                        serializer.saveData(List.of(link.toBibtex()), filteredWriter);
-                        continue;
-                    }
-                    if (filtrationOption == FiltrationOption.ADVANCED) {
-                        try {
+                        if (filtrationOption == FiltrationOption.ADVANCED) {
                             final URL url = source.getPaperUrl(link);
                             if (url != null) {
-                                downloadedFile = download(link, url, GlobalConstants.FILTERED_PDFS_DIR);
+                                downloadedFile = download(link, url, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FAILED));
                             }
-                        } catch (IOException e) {
-                            callback.notifyMinor(System.currentTimeMillis() - startTime);
-                            continue;
-                        }
-                        downloaded++;
-                        if (downloadedFile != null) {
-                            final String fulltext = fullTextExtractor.getText(new FileInputStream(downloadedFile));
-                            if (keyWordsFilter.accepts(link.getTitle() + html + fulltext)) {
-                                FileCopyUtils.copy(downloadedFile, new File(GlobalConstants.FILTERED_PDFS_DIR, normalizeName(link.getTitle()) + ".pdf"));
-                                serializer.saveData(List.of(link.toBibtex()), filteredWriter);
-                                downloadedFile.delete();//delete from general directory
-                                callback.notifyMinor(System.currentTimeMillis() - startTime);
-                                continue;
+                            downloaded++;
+                            if (downloadedFile != null) {
+                                final String fulltext = fullTextExtractor.getText(new FileInputStream(downloadedFile));
+                                if (keyWordsFilter.accepts(link.getTitle() + html + fulltext)) {
+                                    filtered.add(link.toBibtex());
+                                    FileCopyUtils.copy(downloadedFile, new File(OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FILTERED), OutputUtil.normalizeName(link.getTitle()) + ".pdf"));
+                                    downloadedFile.delete();//delete from general directory
+                                    callback.notifyMinor(System.currentTimeMillis() - startTime);
+                                    continue;
+                                }
                             }
                         }
+                        failed.add(link.toBibtex());
+                        callback.notifyMinor(System.currentTimeMillis() - startTime);
                     }
-                    serializer.saveData(List.of(link.toBibtex()), filtrationFailedWriter);
+                    if (downloaded >= limit) {
+                        break;
+                    }
+                    //handling too many requests exception (429)
+                    Thread.sleep(1500);
+                } catch (Exception e) {
+                    log.error("input DOI: {}, error: {}",link.getDoi(), e.getMessage());
+                    exceptionFailed.add(link.toBibtex());
                     callback.notifyMinor(System.currentTimeMillis() - startTime);
-                }
-                if (downloaded >= limit) {
-                    break;
                 }
             }
+            serializer.saveData(filtered, filteredWriter);
+            serializer.saveData(failed, filtrationFailedWriter);
+            serializer.saveData(exceptionFailed, exceptionFailedWriter);
             callback.notifyMajor(ProgressCallback.EventType.FINISHED, null, null);
             stop();
         }
@@ -109,7 +114,7 @@ public class PdfDownloader implements Stoppable {
 
     public File download(AggregatedLinkInfo info, URL url, File directory) throws IOException, DocumentException {
         final InputStream in = url.openStream();
-        final String fileName = normalizeName(info.getTitle());
+        final String fileName = OutputUtil.normalizeName(info.getTitle());
         final File downloaded = new File(directory, fileName + ".pdf");
         final FileOutputStream fos = new FileOutputStream(downloaded, false);
         final Document doc = new Document();
@@ -125,39 +130,23 @@ public class PdfDownloader implements Stoppable {
         return downloaded;
     }
 
-    private String normalizeName(String initial) {
-        String normalized = initial;
-        return initial.replace("<", "")
-                .replace(">", "")
-                .replace(".", "")
-                .replace("$", "")
-                .replace("+", "")
-                .replace("#", "")
-                .replace("&", "")
-                .replace("'", "")
-                .replace("|", "")
-                .replace("=", "")
-                .replace("/", "")
-                .replace("\\", "")
-                .replace("\n", "")
-                .replace("\r", "");
-    }
-
     private String fetchFullPageHtml(String initialUrl) throws IOException {
         return Jsoup.connect(getFinalURL(initialUrl)).get().html();
     }
 
-    private String getFinalURL(String url) throws IOException {
-        final HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+    private String getFinalURL(String inputUrl) throws IOException {
+        final URL url = new URL(inputUrl);
+        final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setInstanceFollowRedirects(false);
         connection.connect();
         connection.getInputStream();
 
         if (connection.getResponseCode() == HttpURLConnection.HTTP_MOVED_PERM || connection.getResponseCode() == HttpURLConnection.HTTP_MOVED_TEMP) {
-            String redirectUrl = connection.getHeaderField("Location");
-            return getFinalURL(redirectUrl);
+            String location = connection.getHeaderField("Location");
+            location = location.startsWith("/") ? url.getProtocol() + "://" + url.getHost() + location : location;
+            return getFinalURL(location);
         }
-        return url;
+        return inputUrl;
     }
 
     @Override

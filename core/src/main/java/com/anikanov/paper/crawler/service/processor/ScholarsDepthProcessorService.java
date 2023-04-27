@@ -1,9 +1,12 @@
-package com.anikanov.paper.crawler.service;
+package com.anikanov.paper.crawler.service.processor;
 
 import com.anikanov.paper.crawler.config.AppProperties;
 import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.domain.DepthProcessorResult;
+import com.anikanov.paper.crawler.service.LinkExtractorService;
+import com.anikanov.paper.crawler.service.ProgressCallback;
+import com.anikanov.paper.crawler.service.processor.DepthProcessor;
 import com.anikanov.paper.crawler.source.scholars.api.impl.ScholarsApiService;
 import com.anikanov.paper.crawler.source.scholars.api.response.ScholarsMetadataResponse;
 import com.anikanov.paper.crawler.source.scholars.api.response.ScholarsOrganicSearchResponse;
@@ -15,7 +18,6 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 

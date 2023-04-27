@@ -7,9 +7,13 @@ import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.domain.DepthProcessorResult;
 import com.anikanov.paper.crawler.domain.KeyWordsFilter;
 import com.anikanov.paper.crawler.service.*;
+import com.anikanov.paper.crawler.service.cookie.ChromeCookiesExtractor;
+import com.anikanov.paper.crawler.service.processor.CrossrefDepthProcessorService;
+import com.anikanov.paper.crawler.service.processor.DepthProcessor;
 import com.anikanov.paper.crawler.source.GenericPdfSource;
 import com.anikanov.paper.crawler.source.PdfSource;
 import com.anikanov.paper.crawler.source.sciHub.SciHubPdfSource;
+import com.anikanov.paper.crawler.util.OutputUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -17,19 +21,21 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.FileChooser;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import net.rgielen.fxweaver.core.FxmlView;
-import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @FxmlView("main-stage.fxml")
 @RequiredArgsConstructor
@@ -74,7 +80,10 @@ public class ApplicationController implements Stoppable {
     private TextField pdfSource;
 
     @FXML
-    private Button selectFileButton;
+    private Button selectPdfFileButton;
+
+    @FXML
+    private Button selectDoiFileButton;
 
     @FXML
     private Button selectDictionaryFileButton;
@@ -101,7 +110,8 @@ public class ApplicationController implements Stoppable {
 
     private final FileChooser dictionaryChooser = new FileChooser();
 
-    private File selectedFile = null;
+    private File pdfFile = null;
+    private File doiFile = null;
 
     private File dictionary = null;
 
@@ -128,10 +138,17 @@ public class ApplicationController implements Stoppable {
             visualizeOption();
         });
 
-        selectFileButton.setOnAction(actionEvent -> {
-            selectedFile = fileChooser.showOpenDialog(infoLabel.getScene().getWindow());
-            if (selectedFile != null) {
-                infoLabel.setText(selectedFile.getName());
+        selectPdfFileButton.setOnAction(actionEvent -> {
+            pdfFile = fileChooser.showOpenDialog(infoLabel.getScene().getWindow());
+            if (pdfFile != null) {
+                infoLabel.setText(pdfFile.getName());
+            }
+        });
+
+        selectDoiFileButton.setOnAction(actionEvent -> {
+            doiFile = fileChooser.showOpenDialog(infoLabel.getScene().getWindow());
+            if (doiFile != null) {
+                infoLabel.setText(doiFile.getName());
             }
         });
 
@@ -161,17 +178,20 @@ public class ApplicationController implements Stoppable {
                 }
                 switch (approachChooser.getValue()) {
                     case PDF -> executePdfInputCrawling();
-                    case DOI -> executeDoiInputCrawling();
+                    case DOI ->
+                            executeDoiInputCrawling(Arrays.stream(doiInput.textProperty().getValue().trim().split(",")).toList());
+                    case DOI_FILE -> executeDoiInputFileCrawling();
                 }
             });
         });
 
+        //todo
         failedPdfsDeletionButton.setOnAction(actionEvent -> {
-            try {
-                FileUtils.cleanDirectory(GlobalConstants.FAILED_PDFS_DIR);
-            } catch (IOException e) {
-                outputArea.setText(e.getMessage());
-            }
+//            try {
+//                FileUtils.cleanDirectory(OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FAILED));
+//            } catch (IOException e) {
+//                outputArea.setText(e.getMessage());
+//            }
         });
     }
 
@@ -179,22 +199,23 @@ public class ApplicationController implements Stoppable {
         flushProgress();
         properties.setMaxDepth(new BigDecimal(maxDepthSpinner.getValue()));
         String message = "";
-        if (selectedFile == null) {
+        if (pdfFile == null) {
             message = "File not selected";
-        } else if (!selectedFile.exists()) {
+        } else if (!pdfFile.exists()) {
             message = "File not exists";
-        } else if (!notADirectory(selectedFile)) {
+        } else if (!notADirectory(pdfFile)) {
             message = "File should not be a directory";
-        } else if (!acceptableExtension(selectedFile)) {
+        } else if (!acceptableExtension(pdfFile)) {
             message = "File should have one of following extensions: " + String.join(",", GlobalConstantsUi.SUPPORTED_EXTENSIONS);
         } else if (dictionary != null && !getExtension(dictionary).equalsIgnoreCase("txt")) {
             message = "dictionary should have txt extension";
         } else {
             try {
                 start();
-                final AppCallback callback = new AppCallback();
-                final DepthProcessorResult result = depthProcessorService.process(new FileInputStream(selectedFile), callback);
-                message = manageOutput(result, callback);
+                OutputUtil.refreshOutputDir(pdfFile.getName());
+                final AppCallback callback = new AppCallback(1);
+                final DepthProcessorResult result = depthProcessorService.process(new FileInputStream(pdfFile), callback);
+                message = manageOutput(pdfFile.getName(), result, callback);
                 stop();
             } catch (Exception e) {
                 message = e.getMessage();
@@ -203,21 +224,28 @@ public class ApplicationController implements Stoppable {
         outputArea.setText(message);
     }
 
-    private void executeDoiInputCrawling() {
+    private void executeDoiInputCrawling(List<String> dois) {
         flushProgress();
         properties.setMaxDepth(new BigDecimal(maxDepthSpinner.getValue()));
         String message = "";
-        final String doi = doiInput.textProperty().getValue().trim();
-        if (Objects.equals("", doi)) {
-            message = "You should specify DOI";
+        if (dois.isEmpty()) {
+            message = "You should specify at least one DOI";
         } else if (dictionary != null && !getExtension(dictionary).equalsIgnoreCase("txt")) {
             message = "dictionary should have txt extension";
         } else {
             try {
                 start();
-                final AppCallback callback = new AppCallback();
-                final DepthProcessorResult result = depthProcessorService.process(doi, callback);
-                message = manageOutput(result, callback);
+                final AppCallback callback = new AppCallback(dois.size());
+                for (String doi : dois) {
+                    try {
+                        callback.nextInput();
+                        OutputUtil.refreshOutputDir(doi);
+                        final DepthProcessorResult result = depthProcessorService.process(doi, callback);
+                        message = manageOutput(doi, result, callback);
+                    } catch (Exception e) {
+                        log.error("Failed Processing doi: {}, error: {}", doi, e.getMessage());
+                    }
+                }
                 stop();
             } catch (Exception e) {
                 message = e.getMessage();
@@ -226,7 +254,35 @@ public class ApplicationController implements Stoppable {
         outputArea.setText(message);
     }
 
-    private String manageOutput(DepthProcessorResult result, AppCallback callback) {
+    private void executeDoiInputFileCrawling() {
+        flushProgress();
+        properties.setMaxDepth(new BigDecimal(maxDepthSpinner.getValue()));
+        String message = "";
+        if (doiFile == null) {
+            message = "File not selected";
+        } else if (!doiFile.exists()) {
+            message = "File not exists";
+        } else if (!notADirectory(doiFile)) {
+            message = "File should not be a directory";
+        } else if (doiFile != null && !getExtension(doiFile).equalsIgnoreCase("txt")) {
+            message = "doi file should have txt extension";
+        } else {
+            try {
+                final List<String> dois = new ArrayList<>();
+                final Scanner scanner = new Scanner(doiFile);
+                while (scanner.hasNextLine()) {
+                    dois.add(scanner.nextLine());
+                }
+                executeDoiInputCrawling(dois);
+                return;
+            } catch (FileNotFoundException e) {
+                message = e.getMessage();
+            }
+        }
+        outputArea.setText(message);
+    }
+
+    private String manageOutput(String input, DepthProcessorResult result, AppCallback callback) {
         final StringBuilder output = new StringBuilder("Result: ").append(System.lineSeparator());
         final Map<AggregatedLinkInfo, Long> map = result.getResult();
 
@@ -257,11 +313,10 @@ public class ApplicationController implements Stoppable {
                         .append(System.lineSeparator());
             }
             try {
-                GlobalConstants.refreshOutputDir();
-                serializer.saveData(keySet.stream().map(AggregatedLinkInfo::toBibtex).collect(Collectors.toList()));
+                serializer.saveData(input, keySet.stream().map(AggregatedLinkInfo::toBibtex).collect(Collectors.toList()));
                 final String pdfSrc = pdfSource.getText().trim();
                 final PdfSource source = pdfSrc.isEmpty() ? sciHubPdfSource : new GenericPdfSource(pdfSrc, cookiesExtractor);
-                pdfDownloader.download(keySet, pdfsLimitSpinner.getValue(), keyWordsFilter, filtrationModeChooser.getValue(), source, callback);
+                pdfDownloader.download(input, keySet, pdfsLimitSpinner.getValue(), keyWordsFilter, filtrationModeChooser.getValue(), source, callback);
             } catch (Exception e) {
                 output.append(e.getMessage());
             }
@@ -272,14 +327,26 @@ public class ApplicationController implements Stoppable {
     private void visualizeOption() {
         switch (approachChooser.getValue()) {
             case DOI -> {
-                selectFileButton.setVisible(false);
-                selectFileButton.setDisable(true);
+                selectPdfFileButton.setVisible(false);
+                selectPdfFileButton.setDisable(true);
+                selectDoiFileButton.setVisible(false);
+                selectDoiFileButton.setDisable(true);
                 doiInput.setVisible(true);
                 doiInput.setDisable(false);
             }
             case PDF -> {
-                selectFileButton.setVisible(true);
-                selectFileButton.setDisable(false);
+                selectPdfFileButton.setVisible(true);
+                selectPdfFileButton.setDisable(false);
+                selectDoiFileButton.setVisible(false);
+                selectDoiFileButton.setDisable(true);
+                doiInput.setVisible(false);
+                doiInput.setDisable(true);
+            }
+            case DOI_FILE -> {
+                selectPdfFileButton.setVisible(false);
+                selectPdfFileButton.setDisable(true);
+                selectDoiFileButton.setVisible(true);
+                selectDoiFileButton.setDisable(false);
                 doiInput.setVisible(false);
                 doiInput.setDisable(true);
             }
@@ -292,7 +359,7 @@ public class ApplicationController implements Stoppable {
     }
 
     private boolean notADirectory(File file) {
-        return Optional.of(selectedFile).filter(f -> f.getName().contains(".")).isPresent();
+        return Optional.of(file).filter(f -> f.getName().contains(".")).isPresent();
     }
 
     private String getExtension(File file) {
@@ -325,24 +392,34 @@ public class ApplicationController implements Stoppable {
     }
 
     public class AppCallback extends ProgressCallback {
+        @Setter
+        private Integer inputs;
+        @Setter
+        private Integer input;
         private Long minorIteration;
         private List<Long> executionTimes;
         private Long majorIteration;
         private BigDecimal depth;
         private EventType type;
 
-        public AppCallback() {
+        public AppCallback(Integer inputs) {
+            this.inputs = inputs;
+            input = 0;
             minorIteration = 0L;
             majorIteration = 0L;
             depth = BigDecimal.ZERO;
             this.executionTimes = new ArrayList<>();
         }
 
+        public void nextInput() {
+            input++;
+        }
+
         @Override
         public void notifyMinor(Long executionTime) {
             minorIteration = ++executed;
             executionTimes.add(executionTime);
-            final String processName = type.getName() + Optional.ofNullable(depth).map(d -> " " + d.toPlainString()).orElse("");
+            final String processName = String.format("Input: %s/%s%s", input, inputs, System.lineSeparator()) + type.getName() + Optional.ofNullable(depth).map(d -> " " + d.toPlainString()).orElse("");
             Platform.runLater(() -> progressLabel.setText(String.format("%s: %s %s/%s %s est. time sec: %s",
                     processName,
                     System.lineSeparator(),
@@ -374,6 +451,7 @@ public class ApplicationController implements Stoppable {
 
     private enum ApproachOption {
         DOI("doi input"),
+        DOI_FILE("doi file input"),
         PDF("pdf input");
 
         private String code;

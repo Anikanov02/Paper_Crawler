@@ -1,9 +1,11 @@
-package com.anikanov.paper.crawler.service;
+package com.anikanov.paper.crawler.service.processor;
 
 import com.anikanov.paper.crawler.config.AppProperties;
 import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.domain.DepthProcessorResult;
+import com.anikanov.paper.crawler.service.LinkExtractorService;
+import com.anikanov.paper.crawler.service.ProgressCallback;
 import com.anikanov.paper.crawler.source.crossref.api.impl.CrossrefApiService;
 import com.anikanov.paper.crawler.source.crossref.api.request.WorksBibliographicSearchRequest;
 import com.anikanov.paper.crawler.source.crossref.api.response.CrossrefMetadataResponse;
@@ -94,18 +96,22 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
             encounteredInstances.addAll(input);
             callback.notifyMajor(ProgressCallback.EventType.DEPTH, (long) input.size(), depth);
             for (AggregatedLinkInfo link : input) {
-                if (!running) {
-                    return;
-                }
-                if (Objects.nonNull(link.getDoi())) {
-                    final CrossrefMetadataResponse.Item response = apiService.getWork(link.getDoi(), callback);
-                    if (Objects.nonNull(response)) {
-                        if (Objects.nonNull(response.getReference())) {
-                            layerData.addAll(toAggregatedLinks(response));
-                        }
-                    } else {
-                        brokenLinks.add(link);
+                try {
+                    if (!running) {
+                        return;
                     }
+                    if (Objects.nonNull(link.getDoi())) {
+                        final CrossrefMetadataResponse.Item response = apiService.getWork(link.getDoi(), callback);
+                        if (Objects.nonNull(response)) {
+                            if (Objects.nonNull(response.getReference())) {
+                                layerData.addAll(toAggregatedLinks(response));
+                            }
+                        } else {
+                            brokenLinks.add(link);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("Error during processing depth {}, link: {}, error: {}", depth, link, e.getMessage());
                 }
             }
             process(result, layerData, encounteredInstances, brokenLinks, depth, callback);
@@ -162,18 +168,22 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         log.info("Applying DOIs to input links");
         callback.notifyMajor(ProgressCallback.EventType.DEPTH, (long) links.size(), BigDecimal.ONE);
         for (AggregatedLinkInfo info : links) {
-            if (!running) {
-                break;
-            }
-            final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
-                    .requestText(info.getText())
-                    .rows(1)
-                    .select("DOI")
-                    .build();
-            final CrossrefMetadataResponse response = apiService.getWorks(request, callback);
-            if (Objects.nonNull(response) && Objects.nonNull(response.getItems()) && !response.getItems().isEmpty()) {
-                result.add(info);
-                info.setDoi(response.getItems().get(0).getDoi());
+            try {
+                if (!running) {
+                    break;
+                }
+                final WorksBibliographicSearchRequest request = WorksBibliographicSearchRequest.builder()
+                        .requestText(info.getText())
+                        .rows(1)
+                        .select("DOI")
+                        .build();
+                final CrossrefMetadataResponse response = apiService.getWorks(request, callback);
+                if (Objects.nonNull(response) && Objects.nonNull(response.getItems()) && !response.getItems().isEmpty()) {
+                    result.add(info);
+                    info.setDoi(response.getItems().get(0).getDoi());
+                }
+            } catch (Exception e) {
+                log.error("Error during enriching link: {}, error msg: {}", info, e.getMessage());
             }
         }
         return result.stream().distinct().collect(Collectors.toList());
@@ -207,12 +217,16 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
     public void enrichWithTitle(Collection<AggregatedLinkInfo> links, ProgressCallback callback) {
         callback.notifyMajor(ProgressCallback.EventType.APPLYING_EXTRA_DATA, (long) links.size(), null);
         links.stream().forEach(link -> {
-            if (!running) {
-                return;
-            }
-            final CrossrefMetadataResponse.Item item = apiService.getWork(link.getDoi(), callback);
-            if (Objects.nonNull(item)) {
-                applyExtraData(link, item);
+            try {
+                if (!running) {
+                    return;
+                }
+                final CrossrefMetadataResponse.Item item = apiService.getWork(link.getDoi(), callback);
+                if (Objects.nonNull(item)) {
+                    applyExtraData(link, item);
+                }
+            } catch (Exception e) {
+                log.error("Error during enriching with title for link: {}, error msg: {}", link, e.getMessage());
             }
         });
     }
