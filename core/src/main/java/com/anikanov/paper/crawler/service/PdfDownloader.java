@@ -1,6 +1,5 @@
 package com.anikanov.paper.crawler.service;
 
-import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.domain.KeyWordsFilter;
 import com.anikanov.paper.crawler.source.PdfSource;
@@ -18,8 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.FileCopyUtils;
 
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,10 +27,7 @@ import java.util.List;
 public class PdfDownloader implements Stoppable {
     private static final String DOI_ORG_BASE_URL = "https://www.doi.org/";
     private final PdfFullTextExtractor fullTextExtractor;
-
     private final BibTexSerializer serializer;
-
-    private static final List<String> illegalCharacters = List.of();
 
     private boolean running = false;
 
@@ -62,7 +57,16 @@ public class PdfDownloader implements Stoppable {
                         downloaded++;
                         callback.notifyMinor(System.currentTimeMillis() - startTime);
                     } else {
-                        final String html = fetchFullPageHtml(DOI_ORG_BASE_URL + link.getDoi());
+                        String html;
+                        boolean abstractFetched;
+                        try {
+                            html = fetchFullPageHtml(DOI_ORG_BASE_URL + link.getDoi());
+                            abstractFetched = true;
+                        } catch (Exception e) {
+                            html = "";
+                            abstractFetched = false;
+                            log.error("error fetching abstract DOI: {}, error: {}, WILL download pdf for fulltext search instead",link.getDoi(), e.getMessage());
+                        }
                         if (keyWordsFilter.accepts(link.getTitle() + html)) {
                             //FILTERED
                             filtered.add(link.toBibtex());
@@ -73,7 +77,7 @@ public class PdfDownloader implements Stoppable {
                             downloaded++;
                             continue;
                         }
-                        if (filtrationOption == FiltrationOption.ADVANCED) {
+                        if (filtrationOption == FiltrationOption.ADVANCED || !abstractFetched) {
                             final URL url = source.getPaperUrl(link);
                             if (url != null) {
                                 downloadedFile = download(link, url, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FAILED));

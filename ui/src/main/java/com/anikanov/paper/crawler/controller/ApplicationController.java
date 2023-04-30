@@ -30,6 +30,7 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -312,8 +313,9 @@ public class ApplicationController implements Stoppable {
                         .append("----------------------------------------------------------")
                         .append(System.lineSeparator());
             }
-            try {
+            try (FileWriter writer = new FileWriter(OutputUtil.getOutputDir(input, OutputUtil.OutputOption.OUTPUT))) {
                 serializer.saveData(input, keySet.stream().map(AggregatedLinkInfo::toBibtex).collect(Collectors.toList()));
+                writer.write(output.toString());
                 final String pdfSrc = pdfSource.getText().trim();
                 final PdfSource source = pdfSrc.isEmpty() ? sciHubPdfSource : new GenericPdfSource(pdfSrc, cookiesExtractor);
                 pdfDownloader.download(input, keySet, pdfsLimitSpinner.getValue(), keyWordsFilter, filtrationModeChooser.getValue(), source, callback);

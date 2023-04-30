@@ -16,6 +16,7 @@ public class OutputUtil {
     }
 
     public static void refreshOutputDir(String input) throws IOException {
+        final File OUTPUT;
         final File BIBTEX_OUTPUT;
         final File BIBTEX_FILTRATION_FAILED;
         final File BIBTEX_EXCEPTION_FAILED;
@@ -23,6 +24,13 @@ public class OutputUtil {
         final File FAILED_PDFS_DIR;
         final File FILTERED_PDFS_DIR;
         input = normalizeName(input);
+
+        OUTPUT = getOutputDir(input, OutputOption.OUTPUT);
+        if (OUTPUT.exists()) {
+            OUTPUT.delete();
+        }
+        OUTPUT.createNewFile();
+
         BIBTEX_OUTPUT = getOutputDir(input, OutputOption.BIBTEX_GENERAL);
         if (BIBTEX_OUTPUT.exists()) {
             BIBTEX_OUTPUT.delete();
@@ -77,6 +85,9 @@ public class OutputUtil {
             outputDir.mkdir();
         }
         switch (outputOption) {
+            case OUTPUT -> {
+                return new File(getPath() + "/output/" + identifier + "/output.txt");
+            }
             case PDF_FAILED -> {
                 return new File(getPath() + "/output/" + identifier + "/failedPdfs");
             }
@@ -106,28 +117,12 @@ public class OutputUtil {
     }
 
     public static String normalizeName(String initial) {
-        String normalized = initial;
-        return initial.replace("<", "")
-                .replace(">", "")
-                .replace(".", "")
-                .replace("$", "")
-                .replace("+", "")
-                .replace("#", "")
-                .replace("&", "")
-                .replace("%", "")
-                .replace(";", "")
-                .replace(":", "")
-                .replace("'", "")
-                .replace("|", "")
-                .replace("=", "")
-                .replace("/", "")
-                .replace("\"", "")
-                .replace("\\", "")
-                .replace("\n", "")
-                .replace("\r", "");
+        initial = initial.length() > 100 ? initial.substring(0, 99) : initial;
+        return initial.replaceAll("[^a-zA-Z0-9\\s()-]", "");
     }
 
     public enum OutputOption {
+        OUTPUT,
         BIBTEX_GENERAL,
         BIBTEX_FAILED,
         BIBTEX_EXCEPTION_FAILED,
