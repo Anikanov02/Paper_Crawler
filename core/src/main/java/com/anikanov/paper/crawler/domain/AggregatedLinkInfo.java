@@ -44,7 +44,7 @@ public class AggregatedLinkInfo {
     }
 
     public BibTeXEntry toBibtex() {
-        final String firstAuthor = authors.isEmpty() ? null : authors.get(0);
+        final String firstAuthor = authors == null || authors.isEmpty() ? null : authors.get(0);
         final BibTeXEntry entry = new BibTeXEntry(BibTeXEntry.TYPE_ARTICLE, new Key(firstAuthor + year));
 
         if (Objects.nonNull(doi)) {

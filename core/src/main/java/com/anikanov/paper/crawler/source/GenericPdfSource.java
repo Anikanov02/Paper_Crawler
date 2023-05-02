@@ -14,21 +14,20 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class GenericPdfSource implements PdfSource {
-    private String baseUrl;
-    private List<String> domains;
+    private final Mirror mirror;
     private final ChromeCookiesExtractor cookiesExtractor;
 
     public GenericPdfSource(String baseUrl, ChromeCookiesExtractor cookiesExtractor) {
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
         this.cookiesExtractor = cookiesExtractor;
-        this.domains = resolveDomains(baseUrl);
+        this.mirror = new Mirror(baseUrl, resolveDomains(baseUrl));
     }
 
     @Override
-    public URL getPaperUrl(AggregatedLinkInfo info) throws IOException {
+    public URL getPaperUrl(AggregatedLinkInfo info, Mirror mirror) throws IOException {
         final Map<String, String> cookies = fetchCookies();
-        final URL base = new URL(baseUrl);
-        final Document doc = Jsoup.connect(baseUrl + info.getDoi()).cookies(cookies).get();
+        final URL base = new URL(mirror.getBaseUrl());
+        final Document doc = Jsoup.connect(mirror.getBaseUrl() + info.getDoi()).cookies(cookies).get();
         final Elements pdfs = doc.select("[type=application/pdf]");
         if (!pdfs.isEmpty()) {
             final Element pdf = pdfs.get(0);
@@ -38,6 +37,11 @@ public class GenericPdfSource implements PdfSource {
         } else {
             return null;
         }
+    }
+
+    @Override
+    public List<Mirror> matchingMirrors(AggregatedLinkInfo info) {
+        return List.of(mirror);
     }
 
     private List<String> resolveDomains(String baseUrl) {
@@ -50,7 +54,7 @@ public class GenericPdfSource implements PdfSource {
     }
 
     private Map<String, String> fetchCookies() {
-        return domains.stream().flatMap(domain -> cookiesExtractor.getCookies(domain).stream())
+        return mirror.getDomains().stream().flatMap(domain -> cookiesExtractor.getCookies(domain).stream())
                 .collect(Collectors.toMap(ChromeCookiesExtractor.DecryptedCookie::getName, ChromeCookiesExtractor.DecryptedCookie::getDecryptedValue, (existing, replacement) -> replacement));
     }
 }

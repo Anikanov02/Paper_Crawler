@@ -51,11 +51,11 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         final List<AggregatedLinkInfo> orderedKeySet = subResult.keySet().stream().sorted(Comparator.comparing(subResult::get).reversed()).toList();
         final List<AggregatedLinkInfo> trimmedKeySet = limit == null || limit <= 0 ? orderedKeySet : orderedKeySet.subList(0, Math.min(orderedKeySet.size(), limit));
         trimmedKeySet.forEach(link -> map.put(link, subResult.get(link)));
-        enrichWithTitle(map.keySet(), callback);
+        final Map<AggregatedLinkInfo, Long> res = enrichWithTitle(map, callback);
         stop();
         return DepthProcessorResult.builder()
                 .brokenLinks(brokenLinks)
-                .result(map)
+                .result(res)
                 .build();
     }
 
@@ -75,11 +75,11 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         final List<AggregatedLinkInfo> orderedKeySet = subResult.keySet().stream().sorted(Comparator.comparing(subResult::get).reversed()).toList();
         final List<AggregatedLinkInfo> trimmedKeySet = limit == null || limit <= 0 ? orderedKeySet : orderedKeySet.subList(0, Math.min(orderedKeySet.size(), limit));
         trimmedKeySet.forEach(link -> map.put(link, subResult.get(link)));
-        enrichWithTitle(map.keySet(), callback);
+        final Map<AggregatedLinkInfo, Long> res = enrichWithTitle(map, callback);
         stop();
         return DepthProcessorResult.builder()
                 .brokenLinks(brokenLinks)
-                .result(map)
+                .result(res)
                 .build();
     }
 
@@ -214,7 +214,9 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
         link.setJournalTitle(journalTitle);
     }
 
-    public void enrichWithTitle(Collection<AggregatedLinkInfo> links, ProgressCallback callback) {
+    public Map<AggregatedLinkInfo, Long> enrichWithTitle(Map<AggregatedLinkInfo, Long> map, ProgressCallback callback) {
+        final Map<AggregatedLinkInfo, Long> result = new HashMap<>();
+        final Collection<AggregatedLinkInfo> links = map.keySet();
         callback.notifyMajor(ProgressCallback.EventType.APPLYING_EXTRA_DATA, (long) links.size(), null);
         links.stream().forEach(link -> {
             try {
@@ -224,11 +226,13 @@ public class CrossrefDepthProcessorService implements DepthProcessor {
                 final CrossrefMetadataResponse.Item item = apiService.getWork(link.getDoi(), callback);
                 if (Objects.nonNull(item)) {
                     applyExtraData(link, item);
+                    result.put(link, map.get(link));
                 }
             } catch (Exception e) {
                 log.error("Error during enriching with title for link: {}, error msg: {}", link, e.getMessage());
             }
         });
+        return result;
     }
 
     @Override

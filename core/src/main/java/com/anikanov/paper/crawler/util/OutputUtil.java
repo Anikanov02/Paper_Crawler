@@ -85,9 +85,6 @@ public class OutputUtil {
             outputDir.mkdir();
         }
         switch (outputOption) {
-            case OUTPUT -> {
-                return new File(getPath() + "/output/" + identifier + "/output.txt");
-            }
             case PDF_FAILED -> {
                 return new File(getPath() + "/output/" + identifier + "/failedPdfs");
             }
@@ -105,6 +102,9 @@ public class OutputUtil {
             }
             case BIBTEX_FILTERED -> {
                 return new File(getPath() + "/output/" + identifier, "bibtex-filtered.txt");
+            }
+            case OUTPUT -> {
+                return new File(getPath() + "/output/" + identifier, "output.txt");
             }
             default -> {
                 throw new RuntimeException("No such output option : " + outputOption);

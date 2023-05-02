@@ -1,5 +1,6 @@
 package com.anikanov.paper.crawler.service;
 
+import com.anikanov.paper.crawler.config.GlobalConstants;
 import com.anikanov.paper.crawler.domain.AggregatedLinkInfo;
 import com.anikanov.paper.crawler.domain.KeyWordsFilter;
 import com.anikanov.paper.crawler.source.PdfSource;
@@ -18,8 +19,11 @@ import org.springframework.util.FileCopyUtils;
 
 import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -50,10 +54,7 @@ public class PdfDownloader implements Stoppable {
                     File downloadedFile = null;
                     if (keyWordsFilter.accepts(link.getTitle())) {
                         filtered.add(link.toBibtex());
-                        final URL url = source.getPaperUrl(link);
-                        if (url != null) {
-                            downloadedFile = download(link, url, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FILTERED));
-                        }
+                        downloadedFile = download(link, source, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FILTERED));
                         downloaded++;
                         callback.notifyMinor(System.currentTimeMillis() - startTime);
                     } else {
@@ -65,23 +66,17 @@ public class PdfDownloader implements Stoppable {
                         } catch (Exception e) {
                             html = "";
                             abstractFetched = false;
-                            log.error("error fetching abstract DOI: {}, error: {}, WILL download pdf for fulltext search instead",link.getDoi(), e.getMessage());
+                            log.error("error fetching abstract DOI: {}, error: {}, WILL download pdf for fulltext search instead", link.getDoi(), e.getMessage());
                         }
                         if (keyWordsFilter.accepts(link.getTitle() + html)) {
                             //FILTERED
                             filtered.add(link.toBibtex());
-                            final URL url = source.getPaperUrl(link);
-                            if (url != null) {
-                                downloadedFile = download(link, url, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FILTERED));
-                            }
+                            downloadedFile = download(link, source, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FILTERED));
                             downloaded++;
                             continue;
                         }
                         if (filtrationOption == FiltrationOption.ADVANCED || !abstractFetched) {
-                            final URL url = source.getPaperUrl(link);
-                            if (url != null) {
-                                downloadedFile = download(link, url, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FAILED));
-                            }
+                            downloadedFile = download(link, source, OutputUtil.getOutputDir(input, OutputUtil.OutputOption.PDF_FAILED));
                             downloaded++;
                             if (downloadedFile != null) {
                                 final String fulltext = fullTextExtractor.getText(new FileInputStream(downloadedFile));
@@ -103,7 +98,7 @@ public class PdfDownloader implements Stoppable {
                     //handling too many requests exception (429)
                     Thread.sleep(1500);
                 } catch (Exception e) {
-                    log.error("input DOI: {}, error: {}",link.getDoi(), e.getMessage());
+                    log.error("input DOI: {}, error: {}", link.getDoi(), e.getMessage());
                     exceptionFailed.add(link.toBibtex());
                     callback.notifyMinor(System.currentTimeMillis() - startTime);
                 }
@@ -116,31 +111,125 @@ public class PdfDownloader implements Stoppable {
         }
     }
 
-    public File download(AggregatedLinkInfo info, URL url, File directory) throws IOException, DocumentException {
-        final InputStream in = url.openStream();
+    public File download(AggregatedLinkInfo info, PdfSource source, File directory) throws IOException {
         final String fileName = OutputUtil.normalizeName(info.getTitle());
         final File downloaded = new File(directory, fileName + ".pdf");
-        final FileOutputStream fos = new FileOutputStream(downloaded, false);
-        final Document doc = new Document();
-        final PdfCopy writer = new PdfCopy(doc, fos);
-        doc.open();
-        final PdfReader reader = new PdfReader(in);
-        int n = reader.getNumberOfPages();
-        for (int i = 1; i <= n; i++) {
-            PdfImportedPage page = writer.getImportedPage(reader, i);
-            writer.addPage(page);
+
+        boolean foundAcceptable = false;
+        for (PdfSource.Mirror mirror : source.matchingMirrors(info)) {
+            final URL url = source.getPaperUrl(info, mirror);
+            if (Objects.nonNull(url)) {
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestProperty("User-Agent", GlobalConstants.DEFAULT_USER_AGENT);
+                connection.setConnectTimeout(30000);
+                connection.setReadTimeout(30000);
+                try (InputStream in = new BufferedInputStream(connection.getInputStream())) {
+                    Files.copy(in, downloaded.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    final String fulltext = fullTextExtractor.getText(new FileInputStream(downloaded));
+                    if (Objects.isNull(fulltext) || fulltext.isEmpty()) {
+                        log.warn("Downloaded empty PDF for mirror: {}, trying another one", mirror.getBaseUrl());
+                    } else {
+                        foundAcceptable = true;
+                        break;
+                    }
+                } catch (Exception e) {
+                    log.warn("Downloaded unreadable PDF for mirror: {}, error: {}, trying another one", mirror.getBaseUrl(), e.getMessage());
+                }
+            }
         }
-        doc.close();
-        return downloaded;
+        if (foundAcceptable) {
+            return downloaded;
+        } else {
+            log.error("Could not download valid PDF, doi: {}", info.getDoi());
+            downloaded.delete();
+            return null;
+        }
     }
 
+//    public File download(AggregatedLinkInfo info, URL url, File directory) throws IOException {
+//        final String fileName = OutputUtil.normalizeName(info.getTitle());
+//        final File downloaded = new File(directory, fileName + ".pdf");
+//
+//        // Set up HTTP connection
+//        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+//        connection.setRequestMethod("GET");
+//        connection.setConnectTimeout(30000);
+//        connection.setReadTimeout(30000);
+//
+//        // Add user-agent header
+//        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+//
+//        // Add random delay between 1 and 5 seconds
+//        int delay = (int)(Math.random() * 4000) + 1000;
+//        try {
+//            Thread.sleep(delay);
+//        } catch (InterruptedException e) {
+//            Thread.currentThread().interrupt();
+//        }
+//
+//        try (InputStream in = new BufferedInputStream(connection.getInputStream())) {
+//            Files.copy(in, downloaded.toPath(), StandardCopyOption.REPLACE_EXISTING);
+//        }
+//
+//        return downloaded;
+//    }
+
+//    public File download(AggregatedLinkInfo info, URL url, File directory) throws IOException, DocumentException {
+//        final String fileName = OutputUtil.normalizeName(info.getTitle());
+//        final File downloaded = new File(directory, fileName + ".pdf");
+//        final FileOutputStream fos = new FileOutputStream(downloaded, false);
+//        final Document doc = new Document();
+//        final PdfCopy writer = new PdfCopy(doc, fos);
+//        doc.open();
+//        InputStream in = null;
+//        try {
+//            in = url.openStream();
+//            final PdfReader reader = new PdfReader(in);
+//            int n = reader.getNumberOfPages();
+//            for (int i = 1; i <= n; i++) {
+//                PdfImportedPage page = writer.getImportedPage(reader, i);
+//                writer.addPage(page);
+//            }
+//            reader.close();
+//            return downloaded;
+//        } finally {
+//            if (in != null) {
+//                in.close();
+//            }
+//            doc.close();
+//            writer.close();
+//            fos.close();
+//        }
+//    }
+
+//    public File download(AggregatedLinkInfo info, URL url, File directory) throws IOException, DocumentException {
+//        final InputStream in = url.openStream();
+//        final String fileName = OutputUtil.normalizeName(info.getTitle());
+//        final File downloaded = new File(directory, fileName + ".pdf");
+//        final FileOutputStream fos = new FileOutputStream(downloaded, false);
+//        final Document doc = new Document();
+//        final PdfCopy writer = new PdfCopy(doc, fos);
+//        doc.open();
+//        final PdfReader reader = new PdfReader(in);
+//        int n = reader.getNumberOfPages();
+//        for (int i = 1; i <= n; i++) {
+//            PdfImportedPage page = writer.getImportedPage(reader, i);
+//            writer.addPage(page);
+//        }
+//        doc.close();
+//        return downloaded;
+//    }
+
     private String fetchFullPageHtml(String initialUrl) throws IOException {
-        return Jsoup.connect(getFinalURL(initialUrl)).get().html();
+        return Jsoup.connect(getFinalURL(initialUrl))
+                .userAgent(GlobalConstants.DEFAULT_USER_AGENT)
+                .get().html();
     }
 
     private String getFinalURL(String inputUrl) throws IOException {
         final URL url = new URL(inputUrl);
         final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestProperty("User-Agent", GlobalConstants.DEFAULT_USER_AGENT);
         connection.setInstanceFollowRedirects(false);
         connection.connect();
         connection.getInputStream();
