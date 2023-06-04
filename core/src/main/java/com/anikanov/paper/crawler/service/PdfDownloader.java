@@ -221,23 +221,27 @@ public class PdfDownloader implements Stoppable {
 //    }
 
     private String fetchFullPageHtml(String initialUrl) throws IOException {
-        return Jsoup.connect(getFinalURL(initialUrl))
+        return Jsoup.connect(getFinalURL(initialUrl, new ArrayList<>()))
                 .userAgent(GlobalConstants.DEFAULT_USER_AGENT)
                 .get().html();
     }
 
-    private String getFinalURL(String inputUrl) throws IOException {
+    private String getFinalURL(String inputUrl, List<String> visited) throws IOException {
         final URL url = new URL(inputUrl);
         final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestProperty("User-Agent", GlobalConstants.DEFAULT_USER_AGENT);
         connection.setInstanceFollowRedirects(false);
+        connection.setConnectTimeout(30000);
+        connection.setReadTimeout(30000);
         connection.connect();
         connection.getInputStream();
 
-        if (connection.getResponseCode() == HttpURLConnection.HTTP_MOVED_PERM || connection.getResponseCode() == HttpURLConnection.HTTP_MOVED_TEMP) {
+        if (!visited.contains(inputUrl) && (connection.getResponseCode() == HttpURLConnection.HTTP_MOVED_PERM ||
+                connection.getResponseCode() == HttpURLConnection.HTTP_MOVED_TEMP)) {
+            visited.add(inputUrl);
             String location = connection.getHeaderField("Location");
             location = location.startsWith("/") ? url.getProtocol() + "://" + url.getHost() + location : location;
-            return getFinalURL(location);
+            return getFinalURL(location, visited);
         }
         return inputUrl;
     }
